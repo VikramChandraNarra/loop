@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>The Ring — Architecture</title>
+<title>The Ring: Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Newsreader:ital,opsz,wght@1,18,400;1,18,500;0,18,400&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#fbfcfe; --grid:#d8dce6; --ink:#1f2430; --muted:#6b7280; --faint:#9aa1ad;
@@ -18,29 +21,71 @@
   *{box-sizing:border-box}
   html,body{margin:0;color:var(--ink);
     font-family:var(--sans);-webkit-font-smoothing:antialiased}
-  html{scroll-behavior:smooth}
-  body{background:var(--bg)}
+  body{background:var(--bg);overflow:hidden}
+  body.show-mock{}
+  /* Loop design animations */
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+  @keyframes drift{0%,100%{transform:translate(0,0) scale(1);opacity:0.7}50%{transform:translate(5px,-7px) scale(1.08);opacity:1}}
+  @keyframes sheen{0%,100%{transform:translate(0,0);opacity:0.5}50%{transform:translate(-8px,7px);opacity:0.85}}
+  @keyframes scan{0%{transform:scale(0.3);opacity:0.7}100%{transform:scale(1);opacity:0}}
+  @keyframes ripple{0%{transform:scale(0.6);opacity:0.5}100%{transform:scale(2.2);opacity:0}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+  @keyframes dotwave{0%,60%,100%{transform:translateY(0);opacity:0.5}30%{transform:translateY(-4px);opacity:1}}
+  /* mockups board uses the Loop cream canvas + design type */
+  #board2{background-color:oklch(0.93 0.008 84)}
+  .dcnode{width:300px;font-family:'Hanken Grotesk',sans-serif}
+  .dcnode *{box-sizing:border-box}
 
-  /* whiteboard */
-  #board{position:relative;width:100%;height:100vh;overflow:hidden;cursor:grab;background-color:var(--bg);
+  /* view switcher */
+  .viewtabs{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;
+    display:flex;gap:4px;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
+    border:1px solid var(--line);border-radius:13px;padding:5px;box-shadow:var(--sh)}
+  .viewtabs button{font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--muted);
+    border:none;background:transparent;border-radius:9px;padding:7px 17px;cursor:pointer;letter-spacing:-.01em}
+  .viewtabs button.on{background:var(--ink);color:#fff}
+
+  /* view visibility: two full-screen whiteboards toggled by body.show-mock */
+  #board2,.topbar2{display:none}
+  body.show-mock #board,
+  body.show-mock .topbar,
+  body.show-mock .legend,
+  body.show-mock .note-rule{display:none}
+  body.show-mock #board2{display:block}
+  body.show-mock .topbar2{display:flex}
+
+  /* whiteboard surface */
+  .wb{position:fixed;inset:0;overflow:hidden;cursor:grab;background-color:var(--bg);
     background-image:radial-gradient(var(--grid) 1.1px,transparent 1.1px);
     background-size:22px 22px;}
-  #board.panning{cursor:grabbing}
-  #world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
-  #wires{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+  .wb.panning{cursor:grabbing}
+  .world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+  .wires{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+
+  /* draggable node base (both boards) */
+  .wbnode{position:absolute;cursor:grab}
+  .wbnode.dragging{cursor:grabbing;z-index:25}
 
   .colhead{position:absolute;font-family:var(--mono);font-size:11px;letter-spacing:.14em;
     text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:8px;white-space:nowrap}
   .colhead .n{width:18px;height:18px;border-radius:50%;background:var(--ink);color:#fff;
     display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
 
-  .node{position:absolute;background:var(--c,#fff);border-radius:13px;padding:13px 14px 12px;
-    box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);cursor:grab;
+  /* architecture cards */
+  .node{background:var(--c,#fff);border-radius:13px;padding:13px 14px 12px;
+    box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);
     transition:box-shadow .15s,transform .15s}
   .node:hover{box-shadow:var(--sh-lg);transform:translateY(-2px)}
-  .node.dragging{cursor:grabbing;box-shadow:var(--sh-lg);transform:none}
+  .node.dragging{box-shadow:var(--sh-lg);transform:none}
   .node .ttl{font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
-  .node .ic{font-size:15px}
+  .nrow{display:flex;gap:11px;align-items:flex-start}
+  .nrow .bd{flex:1;min-width:0}
+  .node .ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    flex:none;background:#e9edf3;color:#46506a}
+  .node .ic svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .y .ic{background:#fbe6a3;color:#8a6500} .b .ic{background:#b3dbfa;color:#15639f}
+  .v .ic{background:#d4c2fb;color:#623dc0} .g .ic{background:#b2e7be;color:#1c8146}
+  .o .ic{background:#ffd09c;color:#a25c14} .t .ic{background:#98ecdc;color:#0b7568}
+  #chat .ic{background:#98ecdc;color:#0b7568} #mcp .ic{background:#b2e7be;color:#1c8146}
   .node .say{font-size:12px;color:#3c4250;margin-top:6px;line-height:1.42}
   .y{--c:var(--yellow)} .b{--c:var(--blue)} .v{--c:var(--violet)}
   .g{--c:var(--green)} .p{--c:var(--pink)} .o{--c:var(--orange)} .t{--c:var(--teal)}
@@ -66,21 +111,24 @@
   #chat .pill{display:inline-block;font-size:8.5px;font-family:var(--mono);background:#0c8074;color:#fff;
     border-radius:6px;padding:2px 6px;margin-left:4px;letter-spacing:.05em;vertical-align:middle;font-weight:700}
 
-  /* distribution */
+  /* distribution (arch node) */
   #dist{--c:#fff}
-  #dist .dh{font-size:13px;font-weight:800;display:flex;align-items:center;gap:7px;margin-bottom:5px}
+  #dist .dh{font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  #dist .dh svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round;color:#384150}
   #dist .leg{font-size:9.5px;font-family:var(--mono);color:var(--faint);margin-bottom:9px;display:flex;gap:12px}
   #dist .leg b{font-weight:700}
   .dot-ok{color:#2f9e54} .dot-man{color:#d8803a}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:7px}
   .tile{background:var(--pink);border-radius:9px;padding:7px 9px;border:1px solid rgba(0,0,0,.04)}
   .tile.manual{background:var(--orange);border-color:#f0c89a}
-  .tile .h{font-size:11.5px;font-weight:700;display:flex;align-items:center;gap:5px}
+  .tile .h{font-size:11.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .tile .h svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round;color:#5a6170}
+  .tile.manual .h svg{color:#a25c14}
   .tile .h .badge{margin-left:auto;font-size:9px}
   .tile .d{font-size:10px;color:#5a6170;margin-top:1px}
 
   /* chrome */
-  .topbar{position:absolute;top:16px;left:18px;z-index:40;display:flex;align-items:center;gap:14px;
+  .topbar{position:fixed;top:16px;left:18px;z-index:40;display:flex;align-items:center;gap:14px;
     background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border:1px solid var(--line);
     border-radius:13px;padding:9px 15px;box-shadow:var(--sh)}
   .topbar h1{font-size:15px;margin:0;font-weight:700;letter-spacing:-.01em}
@@ -88,13 +136,13 @@
   .topbar .hint{font-size:12px;color:var(--muted);border-left:1px solid var(--line);padding-left:14px}
   .topbar .hint b{color:var(--ink)}
 
-  .legend{position:absolute;top:16px;right:18px;z-index:40;display:flex;flex-direction:column;gap:6px;
+  .legend{position:fixed;top:16px;right:18px;z-index:40;display:flex;flex-direction:column;gap:6px;
     background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border:1px solid var(--line);
     border-radius:13px;padding:11px 14px;box-shadow:var(--sh)}
   .legend span{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted)}
   .legend i{width:12px;height:12px;border-radius:4px;border:1px solid rgba(0,0,0,.07)}
 
-  .tools{position:absolute;bottom:20px;right:20px;z-index:40;display:flex;align-items:center;gap:6px;
+  .tools{position:fixed;bottom:20px;right:20px;z-index:40;display:flex;align-items:center;gap:6px;
     background:rgba(255,255,255,.9);backdrop-filter:blur(8px);border:1px solid var(--line);
     border-radius:12px;padding:6px;box-shadow:var(--sh)}
   .tools button{width:32px;height:32px;border:none;background:#f1f3f8;border-radius:8px;cursor:pointer;
@@ -102,29 +150,18 @@
   .tools button:hover{background:#e6e9f1}
   .tools .zl{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:42px;text-align:center}
 
-  .note-rule{position:absolute;bottom:20px;left:20px;z-index:40;max-width:430px;font-size:11.5px;
+  .note-rule{position:fixed;bottom:20px;left:20px;z-index:40;max-width:430px;font-size:11.5px;
     color:var(--muted);line-height:1.5;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);
     border:1px solid var(--line);border-radius:12px;padding:10px 14px;box-shadow:var(--sh)}
   .note-rule b{color:var(--ink)}
 
-  /* ============================================================ phone flow */
-  .flow{position:relative;background:linear-gradient(180deg,#f7f9fd,#eceff7);
-    border-top:1px solid var(--frame);padding:60px 5vw 100px}
-  .flow .fhead{max-width:780px;margin:0 auto}
-  .flow .fkick{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
-  .flow .fhead h2{font-size:27px;margin:7px 0 9px;font-weight:800;letter-spacing:-.02em}
-  .flow .fhead p{font-size:14px;color:var(--muted);line-height:1.6;margin:0;max-width:620px}
-  .flow .scrollhint{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:14px;letter-spacing:.05em}
+  /* ============================================================ phone nodes (mock board) */
+  .mockcard{width:238px;display:flex;flex-direction:column;align-items:center;gap:12px}
+  .steplabel{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--muted);
+    display:flex;gap:8px;align-items:center;white-space:nowrap;text-transform:uppercase}
+  .steplabel .sn{width:19px;height:19px;border-radius:50%;background:var(--ink);color:#fff;font-size:10px;
+    font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 
-  .strip{display:flex;align-items:center;gap:0;overflow-x:auto;padding:42px 4px 30px;scroll-snap-type:x proximity}
-  .strip::-webkit-scrollbar{height:9px}
-  .strip::-webkit-scrollbar-track{background:transparent}
-  .strip::-webkit-scrollbar-thumb{background:#cbd2e0;border-radius:9px}
-  .stepwrap{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:15px;scroll-snap-align:center}
-  .steplabel{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;color:var(--muted);display:flex;gap:8px;align-items:center;white-space:nowrap}
-  .steplabel .sn{width:19px;height:19px;border-radius:50%;background:var(--ink);color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
-
-  /* phone shell */
   .phone{width:238px;height:486px;background:#0d0e12;border-radius:40px;padding:10px;
     box-shadow:0 24px 50px rgba(18,24,44,.30),0 3px 9px rgba(0,0,0,.20);position:relative}
   .phone::before{content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);
@@ -135,11 +172,6 @@
     font-size:11px;font-weight:700;color:#1f2430;flex:0 0 auto}
   .sbar .r{display:flex;gap:6px;align-items:center;font-size:11px}
   .scrn{flex:1;display:flex;flex-direction:column;padding:14px 15px 16px;overflow:hidden}
-
-  /* arrows between phones */
-  .arrow{flex:0 0 auto;width:84px;display:flex;flex-direction:column;align-items:center;gap:8px}
-  .arrow svg{width:80px;height:22px;display:block}
-  .arrow .alab{font-family:var(--mono);font-size:9.5px;color:var(--muted);text-align:center;line-height:1.35;max-width:90px}
 
   /* shared screen bits */
   .appbar{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14.5px;margin-bottom:13px;letter-spacing:-.01em}
@@ -176,7 +208,7 @@
   .toast{background:#0d0e12;color:#fff;font-size:11px;font-weight:600;border-radius:22px;padding:9px 15px;
     display:flex;gap:8px;align-items:center}
 
-  /* distribution cards */
+  /* distribution cards (phone) */
   .draft{border-radius:13px;padding:10px 12px;margin-bottom:9px;border:1px solid rgba(0,0,0,.05)}
   .draft.x{background:#eef4ff;border-color:#d7e6ff}
   .draft.tk{background:#fff0f5;border-color:#ffd3e2}
@@ -191,18 +223,37 @@
 </head>
 <body>
 
-<div id="board">
-  <div id="world">
-    <svg id="wires"></svg>
+<div class="viewtabs">
+  <button id="tabArch" class="on">Architecture</button>
+  <button id="tabMock">Mockups</button>
+</div>
+
+<!-- ARCHITECTURE BOARD -->
+<div id="board" class="wb">
+  <div id="world" class="world">
+    <svg id="wires" class="wires"></svg>
+  </div>
+</div>
+
+<!-- MOCKUPS BOARD -->
+<div id="board2" class="wb">
+  <div id="world2" class="world">
+    <svg id="wires2" class="wires"></svg>
   </div>
 </div>
 
 <div class="topbar">
   <div>
     <div class="kick">The Ring</div>
-    <h1>Architecture — say it once, it shows up everywhere</h1>
+    <h1>Architecture</h1>
   </div>
-  <div class="hint"><b>Drag</b> to pan · <b>scroll</b> to zoom · <b>grab a card</b> to move it</div>
+</div>
+
+<div class="topbar topbar2">
+  <div>
+    <div class="kick">The Ring</div>
+    <h1>App mockups</h1>
+  </div>
 </div>
 
 <div class="legend">
@@ -214,7 +265,7 @@
 </div>
 
 <div class="note-rule">
-  <b>The one rule:</b> raw audio never leaves the device. Transcription and fusion run on the phone — only structured context crosses the MCP door, with your permission.
+  <b>The one rule:</b> raw audio never leaves the device. Transcription and fusion run on the phone, only structured context crosses the MCP door, with your permission.
 </div>
 
 <div class="tools">
@@ -224,225 +275,42 @@
   <button id="recenter" title="Fit to screen">⌖</button>
 </div>
 
-<!-- ============================================================ phone walkthrough -->
-<section class="flow">
-  <div class="fhead">
-    <div class="fkick">On the phone</div>
-    <h2>Say it once — watch it move through your phone</h2>
-    <p>The same pipeline as above, but as the companion app actually sees it: from a narrated thought on your finger to a draft that's ready to ship — everywhere it should be.</p>
-    <div class="scrollhint">↔ scroll the strip · follow the arrows</div>
-  </div>
-
-  <div class="strip">
-
-    <!-- 1 · capture -->
-    <div class="stepwrap">
-      <div class="steplabel"><span class="sn">1</span> CAPTURE · ON THE FINGER</div>
-      <div class="phone"><div class="screen">
-        <div class="sbar"><span>10:42</span><span class="r">📶 ❤️ 🔋</span></div>
-        <div class="scrn">
-          <div class="cap">
-            <div class="mic">🎙️</div>
-            <div class="wave">
-              <i style="animation-delay:0s"></i><i style="animation-delay:.12s"></i><i style="animation-delay:.24s"></i>
-              <i style="animation-delay:.36s"></i><i style="animation-delay:.18s"></i><i style="animation-delay:.30s"></i>
-              <i style="animation-delay:.06s"></i><i style="animation-delay:.22s"></i><i style="animation-delay:.40s"></i>
-            </div>
-            <div>
-              <div class="lis">Listening…</div>
-              <div class="sub">double-tap to mark intentional</div>
-            </div>
-            <div class="toast">✓ Captured · haptic buzz</div>
-          </div>
-        </div>
-      </div></div>
-    </div>
-
-    <div class="arrow">
-      <svg viewBox="0 0 80 22"><line x1="2" y1="11" x2="66" y2="11" stroke="#aeb6c6" stroke-width="2"/><path d="M66,5 L76,11 L66,17 Z" fill="#aeb6c6"/></svg>
-      <div class="alab">BLE · audio + sensors</div>
-    </div>
-
-    <!-- 2 · ingest -->
-    <div class="stepwrap">
-      <div class="steplabel"><span class="sn">2</span> INGEST · COMPANION APP</div>
-      <div class="phone"><div class="screen">
-        <div class="sbar"><span>10:42</span><span class="r">📶 🔋</span></div>
-        <div class="scrn">
-          <div class="appbar"><span class="live"></span> Loop</div>
-          <div class="pill" style="margin-bottom:12px">🔗 Ring connected · BLE</div>
-          <div class="wave" style="height:38px;margin:0 0 14px">
-            <i style="animation-delay:0s"></i><i style="animation-delay:.2s"></i><i style="animation-delay:.4s"></i>
-            <i style="animation-delay:.1s"></i><i style="animation-delay:.3s"></i><i style="animation-delay:.5s"></i>
-            <i style="animation-delay:.25s"></i><i style="animation-delay:.15s"></i><i style="animation-delay:.35s"></i>
-            <i style="animation-delay:.05s"></i><i style="animation-delay:.45s"></i><i style="animation-delay:.22s"></i>
-          </div>
-          <div class="chk"><span class="cb">✓</span> Background noise removed</div>
-          <div class="chk"><span class="cb">✓</span> Volume leveled</div>
-          <div class="chk"><span class="cb">✓</span> Speech detected — skip silence</div>
-          <div class="chk"><span class="cb">✓</span> Double-tap = intentional</div>
-          <div class="meta">⬡ raw audio never leaves device</div>
-        </div>
-      </div></div>
-    </div>
-
-    <div class="arrow">
-      <svg viewBox="0 0 80 22"><line x1="2" y1="11" x2="66" y2="11" stroke="#aeb6c6" stroke-width="2"/><path d="M66,5 L76,11 L66,17 Z" fill="#aeb6c6"/></svg>
-      <div class="alab">clean · listen on speech</div>
-    </div>
-
-    <!-- 3 · understand -->
-    <div class="stepwrap">
-      <div class="steplabel"><span class="sn">3</span> UNDERSTAND · ON-DEVICE</div>
-      <div class="phone"><div class="screen">
-        <div class="sbar"><span>10:42</span><span class="r">📶 🔋</span></div>
-        <div class="scrn">
-          <div class="appbar">✍️ Transcribed</div>
-          <div class="bubble">“We should auto-draft a changelog entry every time I ship — pull it from my commits and my voice note.”</div>
-          <div class="tagrow">
-            <span class="tag idea">💡 idea</span>
-            <span class="tag">📋 task</span>
-            <span class="tag">💬 reply</span>
-          </div>
-          <div class="k" style="margin-top:14px">
-            <div class="kt">🧭 Sorted as</div>
-            <div class="kd">Feature idea → routed to your tracker &amp; changelog.</div>
-          </div>
-          <div class="meta">speech → text · intent · 10:42</div>
-        </div>
-      </div></div>
-    </div>
-
-    <div class="arrow">
-      <svg viewBox="0 0 80 22"><line x1="2" y1="11" x2="66" y2="11" stroke="#aeb6c6" stroke-width="2"/><path d="M66,5 L76,11 L66,17 Z" fill="#aeb6c6"/></svg>
-      <div class="alab">fuse + store</div>
-    </div>
-
-    <!-- 4 · context layer -->
-    <div class="stepwrap">
-      <div class="steplabel"><span class="sn">4</span> CONTEXT LAYER · MEMORY</div>
-      <div class="phone"><div class="screen">
-        <div class="sbar"><span>10:42</span><span class="r">🔒 🔋</span></div>
-        <div class="scrn">
-          <div class="appbar">🧬 Your timeline</div>
-          <div class="k">
-            <div class="kt">🗣️ 10:42 — changelog idea</div>
-            <div class="kd">fused with how you felt &amp; where you were</div>
-          </div>
-          <div class="tagrow" style="margin-top:0">
-            <span class="tag on">❤️ 72 bpm</span>
-            <span class="tag on">🌡 36.5°</span>
-            <span class="tag on">📍 SF · café</span>
-            <span class="tag on">🚶 walking</span>
-          </div>
-          <div class="k" style="margin-top:14px">
-            <div class="kt">🗄️ Personal memory</div>
-            <div class="kd">Ideas, health, places &amp; time — one timeline, all yours.</div>
-          </div>
-          <div class="meta">🔒 encrypted · on-device</div>
-        </div>
-      </div></div>
-    </div>
-
-    <div class="arrow">
-      <svg viewBox="0 0 80 22"><line x1="2" y1="11" x2="66" y2="11" stroke="#79c98e" stroke-width="2.2"/><path d="M66,5 L76,11 L66,17 Z" fill="#79c98e"/></svg>
-      <div class="alab">exposed via MCP</div>
-    </div>
-
-    <!-- 5 · agent -->
-    <div class="stepwrap">
-      <div class="steplabel"><span class="sn">5</span> THE DOORWAY · YOUR AGENT</div>
-      <div class="phone"><div class="screen">
-        <div class="sbar"><span>10:43</span><span class="r">📶 🔋</span></div>
-        <div class="scrn">
-          <div class="appbar">🔌 MCP · Agent</div>
-          <div class="pill" style="margin-bottom:12px">🟢 1 door · context shared with permission</div>
-          <div class="bubble" style="background:#e6f9ec;border-color:#aee9bd;border-radius:15px 15px 5px 15px;color:#1f5b34">
-            I already know your projects, metrics, backlog and voice. Want me to draft that changelog idea everywhere it should go?
-          </div>
-          <div class="k" style="margin-top:14px">
-            <div class="kt">🤖 Reading your context</div>
-            <div class="kd">No re-explaining. Reads memory, sends actions back out.</div>
-          </div>
-          <div class="meta">🛍️ marketplace apps plug into the same door</div>
-        </div>
-      </div></div>
-    </div>
-
-    <div class="arrow">
-      <svg viewBox="0 0 80 22"><line x1="2" y1="11" x2="66" y2="11" stroke="#aeb6c6" stroke-width="2"/><path d="M66,5 L76,11 L66,17 Z" fill="#aeb6c6"/></svg>
-      <div class="alab">say it once →</div>
-    </div>
-
-    <!-- 6 · distribution -->
-    <div class="stepwrap">
-      <div class="steplabel"><span class="sn">6</span> DISTRIBUTION · IT SHOWS UP</div>
-      <div class="phone"><div class="screen">
-        <div class="sbar"><span>10:43</span><span class="r">📶 🔋</span></div>
-        <div class="scrn">
-          <div class="appbar">📤 Ready to ship</div>
-          <div class="draft x">
-            <div class="dt">🐦 X · thread</div>
-            <div class="dx">“Shipping auto-changelogs — say it once, it writes itself…”</div>
-            <button class="send go">● Post</button>
-          </div>
-          <div class="draft tk">
-            <div class="dt">📋 Linear · ticket</div>
-            <div class="dx">Auto-draft changelog from commits + voice note</div>
-            <button class="send go">● Create</button>
-          </div>
-          <div class="draft im">
-            <div class="dt">📱 iMessage</div>
-            <div class="dx">Prefilled reply to a user — you tap send</div>
-            <button class="send tap">◐ Send</button>
-          </div>
-          <div class="meta">● one-tap API · ◐ Apple sheet</div>
-        </div>
-      </div></div>
-    </div>
-
-  </div>
-</section>
-
 <script src="https://unpkg.com/three@0.134.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="ring-glb.js"></script>
 <script>
-/* ============================================================ model */
+const NS='http://www.w3.org/2000/svg';
+
+/* ============================================================ architecture model */
 const COLHEADS = [
   {n:1,x:40,  t:'On the finger'},
   {n:2,x:430, t:'Phone · Ingest'},
   {n:3,x:780, t:'Understand · on-device'},
   {n:4,x:1130,t:'Context layer'},
-  {n:5,x:1455,t:'The doorway'},
-  {n:6,x:1715,t:'Who plugs in'},
-  {n:7,x:2010,t:'Distribution'},
+  {n:5,x:1560,t:'Built on your context'},
 ];
-
-// row Y baseline
 const R1=190,R2=345,R3=500,R4=655;
 
 const NODES = {
   ring:  {x:40,  y:300, w:210, cls:'',  special:'ring'},
 
-  rcv:   {x:430, y:R1, w:200, cls:'y', ic:'📡', t:'Receiver',     s:'Companion app catches the Bluetooth stream and reassembles audio + sensor frames.'},
-  clean: {x:430, y:R2, w:200, cls:'y', ic:'🔇', t:'Clean-up',     s:'Cuts background noise and levels the volume.'},
-  vad:   {x:430, y:R3, w:200, cls:'b', ic:'🎚️', t:'Listen only when talking', s:'Skips silence — compute runs on real speech. Saves battery.'},
-  tap:   {x:430, y:R4, w:200, cls:'o', ic:'👆', t:'Double-tap trigger', s:'Accelerometer detects a double-tap to mark intentional capture.'},
+  rcv:   {x:430, y:R1, w:200, cls:'y', ic:'rcv', t:'Receiver',     s:'Companion app catches the Bluetooth stream and reassembles audio + sensor frames.'},
+  clean: {x:430, y:R2, w:200, cls:'y', ic:'clean', t:'Clean-up',     s:'Cuts background noise and levels the volume.'},
+  vad:   {x:430, y:R3, w:200, cls:'b', ic:'vad', t:'Listen only when talking', s:'Skips silence, compute runs on real speech. Saves battery.'},
+  tap:   {x:430, y:R4, w:200, cls:'o', ic:'tap', t:'Double-tap trigger', s:'Accelerometer detects a double-tap to mark intentional capture.'},
 
-  stt:   {x:780, y:R1, w:200, cls:'b', ic:'✍️', t:'Speech → text', s:'Turns your narration into time-stamped text.'},
-  intent:{x:780, y:R2, w:200, cls:'b', ic:'🧭', t:'What you meant', s:'Sorts each thought: idea, task, reply, note.'},
-  gps:   {x:780, y:R3, w:200, cls:'t', ic:'📍', t:'Location',      s:'Comes from the paired phone — there is no GPS in the ring.'},
+  stt:   {x:780, y:R1, w:200, cls:'b', ic:'stt', t:'Speech → text', s:'Turns your narration into time-stamped text.'},
+  intent:{x:780, y:R2, w:200, cls:'b', ic:'intent', t:'What you meant', s:'Sorts each thought: idea, task, reply, note.'},
+  gps:   {x:780, y:R3, w:200, cls:'t', ic:'gps', t:'Location',      s:'Comes from the paired phone, there is no GPS in the ring.'},
 
-  fusion:{x:1130,y:280, w:215, cls:'v', ic:'🧬', t:'Fuse everything', s:'Combines voice with heart rate, temp, motion and location into one timeline: what you said, how you felt, where you were.'},
-  store: {x:1130,y:490, w:215, cls:'v', ic:'🗄️', t:'Personal memory', s:'Encrypted on-device. Your ideas, health, places and time — all yours.'},
+  fusion:{x:1130,y:280, w:215, cls:'v', ic:'fusion', t:'Fuse everything', s:'Combines voice with heart rate, temp, motion and location into one timeline: what you said, how you felt, where you were.'},
+  store: {x:1130,y:490, w:215, cls:'v', ic:'store', t:'Personal memory', s:'Encrypted on-device. Your ideas, health, places and time, all yours.'},
 
-  mcp:   {x:1455,y:300, w:200, cls:'', special:'mcp', ic:'🔌', t:'MCP Context Server', s:'One open door to your context. Any AI agent plugs in and already knows you — no re-explaining. Reads memory, sends actions back out.'},
+  chat:  {x:1560,y:150, w:215, cls:'', special:'chat', ic:'chat', t:'In-app chatbot', s:'Talk to your own data right inside the app. Ask questions, get answers, trigger actions. No external agent, no MCP setup needed.'},
+  mcp:   {x:1560,y:330, w:215, cls:'', special:'mcp', ic:'mcp', t:'MCP Context Server', s:'One open door to your context. Any external agent plugs in and already knows you. Reads memory, sends actions back out.'},
+  market:{x:1560,y:510, w:215, cls:'g', ic:'market', t:'Marketplace apps', s:'Other developers build on the same context via MCP. The ring becomes a platform.'},
 
-  agent: {x:1715,y:300, w:200, cls:'g', ic:'🤖', t:'Your AI agent', s:'Already knows your projects, metrics, backlog and voice.'},
-  market:{x:1715,y:480, w:200, cls:'g', ic:'🛍️', t:'Marketplace apps', s:'Other developers build on the same context. The ring becomes a platform.'},
-
-  dist:  {x:2010,y:200, w:252, cls:'', special:'dist'},
+  dist:  {x:1560,y:690, w:252, cls:'', special:'dist'},
 };
 
 const EDGES = [
@@ -459,24 +327,38 @@ const EDGES = [
   ['rcv','fusion','biometrics + motion','fan'],
   ['gps','fusion','location · from phone','fan'],
   ['fusion','store','','flow'],
-  ['store','mcp','exposed via MCP','flow'],
-  ['mcp','agent','','flow'],
-  ['mcp','market','','flow'],
-  ['agent','dist','say it once →','flow'],
-  ['market','dist','','flow'],
+  ['store','chat','built-in, no MCP setup','direct'],
+  ['store','mcp','open, via MCP','flow'],
+  ['store','market','marketplace','flow'],
+  ['store','dist','say it once','flow'],
 ];
 
-/* ============================================================ render nodes */
-const world=document.getElementById('world');
-const board=document.getElementById('board');
-const svg=document.getElementById('wires');
-
-COLHEADS.forEach(h=>{
-  const d=document.createElement('div'); d.className='colhead';
-  d.style.left=h.x+'px'; d.style.top='110px';
-  d.innerHTML=`<span class="n">${h.n}</span> ${h.t}`;
-  world.appendChild(d);
-});
+const ICONS={
+  rcv:'<path d="m7 7 10 10-5 5V2l5 5L7 17"/>',
+  clean:'<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.6 14.5l.6 1.7 1.7.6-1.7.6-.6 1.7-.6-1.7-1.7-.6 1.7-.6z"/>',
+  vad:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+  tap:'<circle cx="12" cy="13" r="2.6" fill="currentColor" stroke="none"/><path d="M8 9.6a5 5 0 0 1 8 0"/><path d="M5.5 7a8.5 8.5 0 0 1 13 0"/>',
+  stt:'<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="M9 13h6"/><path d="M9 17h4"/>',
+  intent:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>',
+  gps:'<path d="M20 10c0 4.4-5.6 9.2-7.4 10.7a1 1 0 0 1-1.2 0C9.6 19.2 4 14.4 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  fusion:'<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
+  store:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+  chat:'<path d="M7.5 19.5A9 9 0 1 0 4.5 16.5L3 21Z"/>',
+  mcp:'<path d="M9 2v5M15 2v5"/><path d="M6 7h12v4a6 6 0 0 1-12 0z"/><path d="M12 17v5"/>',
+  market:'<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/>',
+  send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/>',
+  hash:'<path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>',
+  messages:'<path d="M8 13a3 3 0 0 1-3 3H4l-2 2V6a3 3 0 0 1 3-3h7a3 3 0 0 1 3 3"/><path d="M21 14a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3v3a3 3 0 0 0 3 3h5l3 2z"/>',
+  mail:'<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/>',
+  ticket:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8.5 11l2 2 4-4"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  check:'<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
+  pen:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  msg:'<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/>'
+};
+function svgIcon(name){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85">${ICONS[name]||''}</svg>`;
+}
 
 function nodeInner(id,n){
   if(n.special==='ring'){
@@ -484,153 +366,252 @@ function nodeInner(id,n){
       <div id="ringLoading">loading 3D…</div></div>
       <div class="nm">The Ring</div>
       <div class="chips">
-        <span class="chip">🎙 mic</span>
-        <span class="chip">❤️ PPG · HR/HRV/SpO₂</span>
-        <span class="chip">🌡 thermistor · temp</span>
-        <span class="chip">📈 accel · double-tap</span>
-        <span class="chip">〜 haptic out</span>
+        <span class="chip">mic</span>
+        <span class="chip">PPG · HR/HRV/SpO₂</span>
+        <span class="chip">thermistor · temp</span>
+        <span class="chip">accel · double-tap</span>
+        <span class="chip">haptic out</span>
       </div>
-      <div class="noled">no indicator LED — haptic-only feedback</div>`;
+      <div class="noled">no indicator LED, haptic-only feedback</div>`;
   }
   if(n.special==='mcp'){
-    return `<div class="ttl"><span class="ic">${n.ic}</span> ${n.t}</div><div class="say">${n.s}</div>`;
+    return `<div class="nrow"><div class="ic">${svgIcon('mcp')}</div><div class="bd"><div class="ttl">${n.t}</div><div class="say">${n.s}</div></div></div>`;
+  }
+  if(n.special==='chat'){
+    return `<div class="nrow"><div class="ic">${svgIcon('chat')}</div><div class="bd"><div class="ttl">${n.t} <span class="pill">BUILT-IN</span></div><div class="say">${n.s}</div></div></div>`;
   }
   if(n.special==='dist'){
-    return `<div class="dh">📤 A thought turns into action</div>
+    return `<div class="dh">${svgIcon('send')} A thought turns into action</div>
       <div class="leg"><span><b class="dot-ok">●</b> one-tap · API</span><span><b class="dot-man">◐</b> manual · Apple sheet</span></div>
       <div class="tiles">
-        <div class="tile"><div class="h">🐦 X / thread <span class="badge dot-ok">●</span></div><div class="d">in your voice</div></div>
-        <div class="tile"><div class="h">💬 Slack <span class="badge dot-ok">●</span></div><div class="d">DM or reply</div></div>
-        <div class="tile"><div class="h">✉️ Email <span class="badge dot-ok">●</span></div><div class="d">Gmail / Graph API</div></div>
-        <div class="tile"><div class="h">📋 Ticket <span class="badge dot-ok">●</span></div><div class="d">Linear · Jira · GitHub</div></div>
-        <div class="tile"><div class="h">📝 Changelog <span class="badge dot-ok">●</span></div><div class="d">release note</div></div>
-        <div class="tile"><div class="h">✅ TODO <span class="badge dot-ok">●</span></div><div class="d">right project</div></div>
-        <div class="tile"><div class="h">📰 Blog <span class="badge dot-ok">●</span></div><div class="d">draft skeleton</div></div>
-        <div class="tile manual"><div class="h">📱 iMessage <span class="badge dot-man">◐</span></div><div class="d">prefilled — you tap send</div></div>
+        <div class="tile"><div class="h">${svgIcon('hash')}<span>X / thread</span><span class="badge dot-ok">●</span></div><div class="d">in your voice</div></div>
+        <div class="tile"><div class="h">${svgIcon('messages')}<span>Slack</span><span class="badge dot-ok">●</span></div><div class="d">DM or reply</div></div>
+        <div class="tile"><div class="h">${svgIcon('mail')}<span>Email</span><span class="badge dot-ok">●</span></div><div class="d">Gmail / Graph API</div></div>
+        <div class="tile"><div class="h">${svgIcon('ticket')}<span>Ticket</span><span class="badge dot-ok">●</span></div><div class="d">Linear · Jira · GitHub</div></div>
+        <div class="tile"><div class="h">${svgIcon('list')}<span>Changelog</span><span class="badge dot-ok">●</span></div><div class="d">release note</div></div>
+        <div class="tile"><div class="h">${svgIcon('check')}<span>TODO</span><span class="badge dot-ok">●</span></div><div class="d">right project</div></div>
+        <div class="tile"><div class="h">${svgIcon('pen')}<span>Blog</span><span class="badge dot-ok">●</span></div><div class="d">draft skeleton</div></div>
+        <div class="tile manual"><div class="h">${svgIcon('msg')}<span>iMessage</span><span class="badge dot-man">◐</span></div><div class="d">prefilled, you tap send</div></div>
       </div>`;
   }
-  return `<div class="ttl"><span class="ic">${n.ic}</span> ${n.t}</div><div class="say">${n.s}</div>`;
+  return `<div class="nrow"><div class="ic">${svgIcon(n.ic)}</div><div class="bd"><div class="ttl">${n.t}</div><div class="say">${n.s}</div></div></div>`;
 }
 
-for(const id in NODES){
-  const n=NODES[id];
-  const el=document.createElement('div');
-  el.className='node '+(n.cls||''); if(n.special)el.id=n.special==='ring'?'ringNode':n.special;
-  el.dataset.id=id; el.style.left=n.x+'px'; el.style.top=n.y+'px'; el.style.width=n.w+'px';
-  el.innerHTML=nodeInner(id,n);
-  world.appendChild(el); n.el=el;
-}
+/* ============================================================ mockups model (Loop design phones) */
+const SCREENS = {
+  welcome: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">01 &middot; WELCOME</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:oklch(0.984 0.008 84);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.5 0.012 65)\">setup</span></div>\n\n          <div style=\"flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 32px;text-align:center\">\n            <div style=\"position:relative;width:188px;height:188px;margin-bottom:44px\">\n              <div style=\"position:absolute;inset:-34px;border-radius:50%;background:radial-gradient(circle, oklch(0.70 0.13 150 / 0.18), transparent 68%);animation:drift 9s ease-in-out infinite\"></div>\n              <div style=\"position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 38% 32%, oklch(0.88 0.10 150), oklch(0.69 0.15 150) 44%, oklch(0.58 0.14 42) 100%);box-shadow:0 28px 60px -20px oklch(0.66 0.15 150 / 0.55), inset 0 -14px 36px oklch(0.45 0.12 42 / 0.4);animation:breathe 6s ease-in-out infinite\"></div>\n              <div style=\"position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 66% 74%, oklch(0.86 0.12 42 / 0.75), transparent 54%);mix-blend-mode:screen;animation:drift 9s ease-in-out infinite\"></div>\n              <div style=\"position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 30% 24%, oklch(1 0 0 / 0.7), transparent 30%);animation:sheen 7s ease-in-out infinite\"></div>\n              <div style=\"position:absolute;inset:16px;border-radius:50%;border:1.5px solid oklch(1 0 0 / 0.28)\"></div>\n            </div>\n            <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.18em;color:oklch(0.5 0.012 65);margin-bottom:18px\">WELCOME TO LOOP</div>\n            <div style=\"font-family:'Newsreader',serif;font-style:italic;font-size:34px;line-height:1.12;color:oklch(0.26 0.012 60);letter-spacing:-0.01em\">Meet your<br>quiet companion.</div>\n            <div style=\"font-size:15px;line-height:1.55;color:oklch(0.46 0.012 65);margin-top:18px;max-width:240px\">A ring that listens, understands your day, and turns what you say into everything it should become.</div>\n          </div>\n\n          <div style=\"padding:0 26px 38px;flex:none\">\n            <button style=\"width:100%;border:none;cursor:pointer;font-family:inherit;background:oklch(0.69 0.15 150);color:oklch(0.99 0.02 150);font-size:16px;font-weight:600;padding:16px;border-radius:16px;box-shadow:0 10px 24px -10px oklch(0.66 0.15 150 / 0.65)\">Set up my Loop</button>\n            <div style=\"text-align:center;font-size:13px;color:oklch(0.5 0.012 65);margin-top:16px\">Already have one? <span style=\"color:oklch(0.45 0.12 150);font-weight:600\">Reconnect</span></div>\n          </div>\n        </div>\n      </div>\n    ",
+  prepare: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">02 &middot; PREPARE</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:oklch(0.984 0.008 84);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.5 0.012 65)\">setup</span></div>\n\n          <!-- progress -->\n          <div style=\"display:flex;gap:6px;padding:6px 26px 0;flex:none\">\n            <div style=\"flex:1;height:3px;border-radius:2px;background:oklch(0.69 0.15 150)\"></div>\n            <div style=\"flex:1;height:3px;border-radius:2px;background:oklch(0.69 0.15 150)\"></div>\n            <div style=\"flex:1;height:3px;border-radius:2px;background:oklch(0.88 0.01 84)\"></div>\n            <div style=\"flex:1;height:3px;border-radius:2px;background:oklch(0.88 0.01 84)\"></div>\n          </div>\n\n          <div style=\"flex:1;display:flex;flex-direction:column;padding:30px 26px 0\">\n            <div style=\"font-size:26px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.24 0.012 60);line-height:1.1\">Two things<br>before we pair</div>\n\n            <!-- ring on charger visual -->\n            <div style=\"margin:28px 0;background:oklch(0.995 0.004 85);border:1px solid oklch(0.91 0.01 84);border-radius:22px;height:172px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden\">\n              <div style=\"position:absolute;inset:0;background:radial-gradient(circle at 50% 60%, oklch(0.70 0.13 150 / 0.10), transparent 60%)\"></div>\n              <!-- ring -->\n              <div style=\"position:relative;width:108px;height:108px;border-radius:50%;background:conic-gradient(from 200deg, oklch(0.72 0.02 70), oklch(0.86 0.015 80), oklch(0.62 0.02 65), oklch(0.80 0.015 75), oklch(0.72 0.02 70));box-shadow:0 14px 30px -12px oklch(0.4 0 0 / 0.4),inset 0 2px 4px oklch(1 0 0 / 0.5);display:flex;align-items:center;justify-content:center\">\n                <div style=\"width:62px;height:62px;border-radius:50%;background:oklch(0.984 0.008 84);box-shadow:inset 0 2px 6px oklch(0.4 0 0 / 0.18)\"></div>\n                <div style=\"position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:oklch(0.69 0.15 150);box-shadow:0 0 0 4px oklch(0.70 0.13 150 / 0.25);animation:blink 2.4s ease-in-out infinite\"></div>\n              </div>\n              <div style=\"position:absolute;bottom:14px;font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:0.08em;color:oklch(0.5 0.012 65)\">CHARGING &middot; 82%</div>\n            </div>\n\n            <!-- steps -->\n            <div style=\"display:flex;flex-direction:column;gap:18px\">\n              <div style=\"display:flex;gap:14px;align-items:flex-start\">\n                <div style=\"flex:none;width:30px;height:30px;border-radius:50%;background:oklch(0.70 0.13 150 / 0.14);color:oklch(0.42 0.12 150);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center\">1</div>\n                <div><div style=\"font-size:15px;font-weight:600;color:oklch(0.26 0.012 60)\">Take Loop off the charger</div><div style=\"font-size:13px;color:oklch(0.5 0.012 65);margin-top:2px;line-height:1.45\">A full charge lasts about six days.</div></div>\n              </div>\n              <div style=\"display:flex;gap:14px;align-items:flex-start\">\n                <div style=\"flex:none;width:30px;height:30px;border-radius:50%;background:oklch(0.70 0.13 150 / 0.14);color:oklch(0.42 0.12 150);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center\">2</div>\n                <div><div style=\"font-size:15px;font-weight:600;color:oklch(0.26 0.012 60)\">Hold it near your phone</div><div style=\"font-size:13px;color:oklch(0.5 0.012 65);margin-top:2px;line-height:1.45\">Keep Bluetooth on. Loop wakes on a tap.</div></div>\n              </div>\n            </div>\n          </div>\n\n          <div style=\"padding:18px 26px 38px;flex:none\">\n            <button style=\"width:100%;border:none;cursor:pointer;font-family:inherit;background:oklch(0.69 0.15 150);color:oklch(0.99 0.02 150);font-size:16px;font-weight:600;padding:16px;border-radius:16px;box-shadow:0 10px 24px -10px oklch(0.66 0.15 150 / 0.65)\">Start pairing</button>\n          </div>\n        </div>\n      </div>\n    ",
+  pairing: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">03 &middot; PAIRING</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:oklch(0.984 0.008 84);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.5 0.012 65)\">setup</span></div>\n\n          <div style=\"display:flex;gap:6px;padding:6px 26px 0;flex:none\">\n            <div style=\"flex:1;height:3px;border-radius:2px;background:oklch(0.69 0.15 150)\"></div>\n            <div style=\"flex:1;height:3px;border-radius:2px;background:oklch(0.69 0.15 150)\"></div>\n            <div style=\"flex:1;height:3px;border-radius:2px;background:oklch(0.69 0.15 150)\"></div>\n            <div style=\"flex:1;height:3px;border-radius:2px;background:oklch(0.88 0.01 84)\"></div>\n          </div>\n\n          <!-- radar -->\n          <div style=\"height:268px;flex:none;display:flex;align-items:center;justify-content:center;position:relative\">\n            <div style=\"position:absolute;width:200px;height:200px;border-radius:50%;border:1px solid oklch(0.70 0.13 150 / 0.5);animation:scan 3s ease-out infinite\"></div>\n            <div style=\"position:absolute;width:200px;height:200px;border-radius:50%;border:1px solid oklch(0.70 0.13 150 / 0.5);animation:scan 3s ease-out 1s infinite\"></div>\n            <div style=\"position:absolute;width:200px;height:200px;border-radius:50%;border:1px solid oklch(0.70 0.13 150 / 0.5);animation:scan 3s ease-out 2s infinite\"></div>\n            <div style=\"position:relative;width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 38% 32%, oklch(0.88 0.10 150), oklch(0.69 0.15 150) 50%, oklch(0.58 0.14 42));box-shadow:0 16px 36px -12px oklch(0.66 0.15 150 / 0.6);animation:breathe 5s ease-in-out infinite\"></div>\n          </div>\n\n          <div style=\"padding:0 26px;text-align:center;flex:none\">\n            <div style=\"font-size:22px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.24 0.012 60)\">Looking for your Loop</div>\n            <div style=\"font-size:14px;color:oklch(0.5 0.012 65);margin-top:6px\">Hold the ring close and tap it once.</div>\n          </div>\n\n          <!-- found device -->\n          <div style=\"padding:24px 22px 0;flex:1\">\n            <div style=\"font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:10px\">FOUND 1 DEVICE</div>\n            <div style=\"background:oklch(0.995 0.004 85);border:1.5px solid oklch(0.70 0.13 150 / 0.5);border-radius:18px;padding:16px;display:flex;align-items:center;gap:14px;box-shadow:0 10px 24px -16px oklch(0.4 0 0 / 0.3)\">\n              <div style=\"flex:none;width:46px;height:46px;border-radius:50%;background:conic-gradient(from 200deg, oklch(0.72 0.02 70), oklch(0.86 0.015 80), oklch(0.62 0.02 65), oklch(0.80 0.015 75));display:flex;align-items:center;justify-content:center\"><div style=\"width:24px;height:24px;border-radius:50%;background:oklch(0.984 0.008 84)\"></div></div>\n              <div style=\"flex:1\">\n                <div style=\"font-size:15px;font-weight:700;color:oklch(0.26 0.012 60)\">Loop Ring</div>\n                <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.5 0.012 65);margin-top:2px\">9F3A &middot; signal strong</div>\n              </div>\n              <div style=\"display:flex;align-items:flex-end;gap:2px;height:18px\">\n                <div style=\"width:3px;height:7px;background:oklch(0.69 0.15 150);border-radius:1px\"></div>\n                <div style=\"width:3px;height:11px;background:oklch(0.69 0.15 150);border-radius:1px\"></div>\n                <div style=\"width:3px;height:15px;background:oklch(0.69 0.15 150);border-radius:1px\"></div>\n                <div style=\"width:3px;height:18px;background:oklch(0.69 0.15 150);border-radius:1px\"></div>\n              </div>\n            </div>\n          </div>\n\n          <div style=\"padding:14px 26px 38px;flex:none\">\n            <button style=\"width:100%;border:none;cursor:pointer;font-family:inherit;background:oklch(0.69 0.15 150);color:oklch(0.99 0.02 150);font-size:16px;font-weight:600;padding:16px;border-radius:16px;box-shadow:0 10px 24px -10px oklch(0.66 0.15 150 / 0.65)\">Pair this Loop</button>\n          </div>\n        </div>\n      </div>\n    ",
+  connected: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">04 &middot; CONNECTED</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:linear-gradient(180deg, oklch(0.70 0.13 150 / 0.12), oklch(0.984 0.008 84) 42%);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.45 0.12 150)\">connected</span></div>\n\n          <div style=\"flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 30px;text-align:center\">\n            <div style=\"position:relative;width:150px;height:150px;margin-bottom:34px\">\n              <div style=\"position:absolute;inset:0;border-radius:50%;border:1.5px solid oklch(0.69 0.15 150 / 0.4);animation:ripple 3s ease-out infinite\"></div>\n              <div style=\"position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 38% 32%, oklch(0.88 0.10 150), oklch(0.69 0.15 150) 44%, oklch(0.58 0.14 42));box-shadow:0 24px 54px -18px oklch(0.66 0.15 150 / 0.6);animation:breathe 6s ease-in-out infinite;display:flex;align-items:center;justify-content:center\">\n                <svg width=\"56\" height=\"56\" viewBox=\"0 0 56 56\" fill=\"none\"><path d=\"M16 29 L24 37 L41 19\" stroke=\"white\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>\n              </div>\n            </div>\n            <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.18em;color:oklch(0.45 0.12 150);margin-bottom:14px\">YOU'RE CONNECTED</div>\n            <div style=\"font-family:'Newsreader',serif;font-style:italic;font-size:32px;line-height:1.14;color:oklch(0.26 0.012 60)\">Loop is awake,<br>and it's yours.</div>\n            <div style=\"font-size:15px;line-height:1.55;color:oklch(0.46 0.012 65);margin-top:16px;max-width:230px\">From here it reads your context quietly. Nothing to manage.</div>\n\n            <!-- ring detail chips -->\n            <div style=\"display:flex;gap:8px;margin-top:26px;font-family:'Spline Sans Mono',monospace;font-size:11px\">\n              <span style=\"padding:8px 12px;border-radius:999px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);color:oklch(0.42 0.012 65)\">BAT 82%</span>\n              <span style=\"padding:8px 12px;border-radius:999px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);color:oklch(0.42 0.012 65)\">SIZE 9</span>\n              <span style=\"padding:8px 12px;border-radius:999px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);color:oklch(0.42 0.012 65)\">FW 1.4</span>\n            </div>\n          </div>\n\n          <div style=\"padding:0 26px 38px;flex:none\">\n            <button style=\"width:100%;border:none;cursor:pointer;font-family:inherit;background:oklch(0.24 0.012 60);color:oklch(0.97 0.008 84);font-size:16px;font-weight:600;padding:16px;border-radius:16px;box-shadow:0 10px 24px -12px oklch(0.2 0 0 / 0.5)\">Continue</button>\n          </div>\n        </div>\n      </div>\n    ",
+  listening: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">05 &middot; LISTENING</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:oklch(0.984 0.008 84);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.5 0.012 65)\">setup</span></div>\n\n          <div style=\"flex:1;display:flex;flex-direction:column;padding:12px 22px 0\">\n            <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.14em;color:oklch(0.45 0.12 150);margin-bottom:10px\">HOW LOOP LISTENS</div>\n            <div style=\"font-size:25px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.24 0.012 60);line-height:1.1\">Choose how it<br>captures your voice</div>\n            <div style=\"font-size:13px;line-height:1.45;color:oklch(0.5 0.012 65);margin-top:8px;margin-bottom:20px\">Pick a default. You can switch anytime in Settings.</div>\n\n            <!-- option cards -->\n            <div style=\"display:flex;gap:12px\">\n              <!-- always-on (selected) -->\n              <div style=\"flex:1;border:1.5px solid oklch(0.69 0.15 150);border-radius:18px;overflow:hidden;background:oklch(0.995 0.004 85);box-shadow:0 14px 30px -18px oklch(0.5 0.13 150 / 0.55)\">\n                <div style=\"position:relative;aspect-ratio:1;background:oklch(0.95 0.008 84)\">\n                  <img src=\"alwayson.png\" alt=\"Always-on listening\" style=\"width:100%;height:100%;object-fit:cover;display:block\"/>\n                  <div style=\"position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:oklch(0.69 0.15 150);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 7px oklch(0.45 0.12 150 / 0.5)\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 13 13\" fill=\"none\"><path d=\"M3 6.8 L5.3 9 L10 4\" stroke=\"white\" stroke-width=\"2.1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></div>\n                </div>\n                <div style=\"padding:11px 12px 13px\">\n                  <div style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.08em;color:oklch(0.45 0.12 150);margin-bottom:4px\">RECOMMENDED</div>\n                  <div style=\"font-size:15px;font-weight:700;color:oklch(0.26 0.012 60)\">Always-on</div>\n                  <div style=\"font-size:11px;line-height:1.4;color:oklch(0.5 0.012 65);margin-top:3px\">Listens ambiently and captures through your day.</div>\n                </div>\n              </div>\n              <!-- purposeful -->\n              <div style=\"flex:1;border:1.5px solid oklch(0.90 0.01 84);border-radius:18px;overflow:hidden;background:oklch(0.995 0.004 85)\">\n                <div style=\"position:relative;aspect-ratio:1;background:oklch(0.95 0.008 84)\">\n                  <img src=\"ondemand.png\" alt=\"Purposeful listening\" style=\"width:100%;height:100%;object-fit:cover;display:block\"/>\n                  <div style=\"position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:oklch(1 0 0 / 0.85);border:1.5px solid oklch(0.78 0.01 84)\"></div>\n                </div>\n                <div style=\"padding:11px 12px 13px\">\n                  <div style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.08em;color:oklch(0.55 0.012 65);margin-bottom:4px\">MANUAL</div>\n                  <div style=\"font-size:15px;font-weight:700;color:oklch(0.26 0.012 60)\">Hold to speak</div>\n                  <div style=\"font-size:11px;line-height:1.4;color:oklch(0.5 0.012 65);margin-top:3px\">Only listens when you raise Loop to your mouth.</div>\n                </div>\n              </div>\n            </div>\n\n            <!-- privacy reassurance -->\n            <div style=\"display:flex;gap:11px;align-items:center;background:oklch(0.70 0.13 150 / 0.08);border:1px solid oklch(0.70 0.13 150 / 0.22);border-radius:14px;padding:13px 14px;margin-top:16px\">\n              <svg width=\"18\" height=\"18\" viewBox=\"0 0 18 18\" fill=\"none\" style=\"flex:none\"><rect x=\"3.5\" y=\"8\" width=\"11\" height=\"7.5\" rx=\"2\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"1.6\"/><path d=\"M6 8 V5.5 A3 3 0 0 1 12 5.5 V8\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"1.6\"/></svg>\n              <div style=\"font-size:12px;line-height:1.4;color:oklch(0.40 0.06 150)\">Raw audio never leaves your ring. Pause capture anytime with a tap.</div>\n            </div>\n          </div>\n\n          <div style=\"padding:16px 26px 38px;flex:none\">\n            <button style=\"width:100%;border:none;cursor:pointer;font-family:inherit;background:oklch(0.69 0.15 150);color:oklch(0.99 0.02 150);font-size:16px;font-weight:600;padding:16px;border-radius:16px;box-shadow:0 10px 24px -10px oklch(0.66 0.15 150 / 0.65)\">Enter Loop</button>\n          </div>\n        </div>\n      </div>\n    ",
+  today: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">TAB &middot; TODAY</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:oklch(0.984 0.008 84);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none;z-index:4\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><div style=\"display:flex;align-items:center;gap:7px\"><svg width=\"17\" height=\"11\" viewBox=\"0 0 17 11\" fill=\"none\"><rect x=\"0\" y=\"7\" width=\"3\" height=\"4\" rx=\"1\" fill=\"oklch(0.3 0.01 60)\"/><rect x=\"4.5\" y=\"5\" width=\"3\" height=\"6\" rx=\"1\" fill=\"oklch(0.3 0.01 60)\"/><rect x=\"9\" y=\"2.5\" width=\"3\" height=\"8.5\" rx=\"1\" fill=\"oklch(0.3 0.01 60)\"/><rect x=\"13.5\" y=\"0\" width=\"3\" height=\"11\" rx=\"1\" fill=\"oklch(0.6 0.01 60)\"/></svg><svg width=\"22\" height=\"11\" viewBox=\"0 0 22 11\" fill=\"none\"><rect x=\"0.5\" y=\"0.5\" width=\"18\" height=\"10\" rx=\"2.5\" stroke=\"oklch(0.5 0.01 60)\" fill=\"none\"/><rect x=\"2\" y=\"2\" width=\"13\" height=\"7\" rx=\"1\" fill=\"oklch(0.45 0.12 150)\"/><rect x=\"19.5\" y=\"3.5\" width=\"1.5\" height=\"4\" rx=\"0.75\" fill=\"oklch(0.5 0.01 60)\"/></svg></div></div>\n\n          <div style=\"flex:1;overflow:hidden;padding:6px 20px 90px;position:relative\">\n            <!-- header -->\n            <div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:18px\">\n              <div>\n                <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.08em;color:oklch(0.5 0.012 65)\">WED &middot; JUN 18</div>\n                <div style=\"font-size:24px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.24 0.012 60);margin-top:2px\">Good morning, Alex</div>\n              </div>\n              <div style=\"flex:none;display:flex;align-items:center;gap:5px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);border-radius:999px;padding:6px 10px\"><div style=\"width:7px;height:7px;border-radius:50%;background:oklch(0.69 0.15 150)\"></div><span style=\"font-family:'Spline Sans Mono',monospace;font-size:10px;color:oklch(0.42 0.012 65)\">82%</span></div>\n            </div>\n\n            <!-- readiness hero -->\n            <div style=\"background:oklch(0.995 0.004 85);border:1px solid oklch(0.91 0.01 84);border-radius:22px;padding:20px;display:flex;align-items:center;gap:18px;box-shadow:0 12px 30px -22px oklch(0.4 0 0 / 0.35);margin-bottom:14px\">\n              <div style=\"position:relative;width:96px;height:96px;flex:none\">\n                <svg width=\"96\" height=\"96\" viewBox=\"0 0 96 96\" style=\"transform:rotate(-90deg)\">\n                  <circle cx=\"48\" cy=\"48\" r=\"40\" fill=\"none\" stroke=\"oklch(0.92 0.01 84)\" stroke-width=\"9\"/>\n                  <circle cx=\"48\" cy=\"48\" r=\"40\" fill=\"none\" stroke=\"oklch(0.69 0.15 150)\" stroke-width=\"9\" stroke-linecap=\"round\" stroke-dasharray=\"216 251\"/>\n                </svg>\n                <div style=\"position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center\"><span style=\"font-size:30px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.26 0.012 60)\">86</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.06em;color:oklch(0.5 0.012 65);margin-top:-2px\">READY</span></div>\n              </div>\n              <div style=\"flex:1\">\n                <div style=\"font-size:16px;font-weight:700;color:oklch(0.26 0.012 60)\">Rested. Good day to ship.</div>\n                <div style=\"font-size:13px;line-height:1.45;color:oklch(0.5 0.012 65);margin-top:5px\">HRV and sleep are both up. Your body's primed for focused work this morning.</div>\n              </div>\n            </div>\n\n            <!-- metric row -->\n            <div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px\">\n              <div style=\"background:oklch(0.70 0.13 42 / 0.10);border-radius:16px;padding:13px\"><div style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.04em;color:oklch(0.48 0.12 38)\">REST HR</div><div style=\"font-size:22px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.30 0.05 38);margin-top:4px\">58</div><div style=\"font-size:10px;color:oklch(0.5 0.05 38)\">bpm</div></div>\n              <div style=\"background:oklch(0.55 0.12 265 / 0.10);border-radius:16px;padding:13px\"><div style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.04em;color:oklch(0.40 0.12 265)\">HRV</div><div style=\"font-size:22px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.32 0.06 265);margin-top:4px\">62</div><div style=\"font-size:10px;color:oklch(0.5 0.06 265)\">ms &middot; +7</div></div>\n              <div style=\"background:oklch(0.70 0.13 150 / 0.10);border-radius:16px;padding:13px\"><div style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.04em;color:oklch(0.42 0.12 150)\">TEMP</div><div style=\"font-size:22px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.30 0.05 150);margin-top:4px\">36.4</div><div style=\"font-size:10px;color:oklch(0.5 0.05 150)\">&deg;C base</div></div>\n            </div>\n\n            <!-- sleep + mood/stress row -->\n            <div style=\"display:grid;grid-template-columns:1.25fr 1fr;gap:10px;margin-bottom:14px\">\n              <div style=\"background:oklch(0.995 0.004 85);border:1px solid oklch(0.91 0.01 84);border-radius:18px;padding:15px\">\n                <div style=\"display:flex;justify-content:space-between;align-items:baseline\"><span style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.06em;color:oklch(0.5 0.012 65)\">SLEEP</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;color:oklch(0.45 0.12 150)\">87 score</span></div>\n                <div style=\"font-size:21px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.26 0.012 60);margin-top:5px\">7h 42m</div>\n                <div style=\"display:flex;gap:2px;height:20px;margin-top:9px;align-items:flex-end\">\n                  <div style=\"width:14%;height:60%;background:oklch(0.55 0.12 265);border-radius:2px\"></div>\n                  <div style=\"width:22%;height:100%;background:oklch(0.40 0.12 265);border-radius:2px\"></div>\n                  <div style=\"width:18%;height:45%;background:oklch(0.74 0.10 265);border-radius:2px\"></div>\n                  <div style=\"width:26%;height:85%;background:oklch(0.40 0.12 265);border-radius:2px\"></div>\n                  <div style=\"width:20%;height:55%;background:oklch(0.55 0.12 265);border-radius:2px\"></div>\n                </div>\n              </div>\n              <div style=\"background:oklch(0.995 0.004 85);border:1px solid oklch(0.91 0.01 84);border-radius:18px;padding:15px;display:flex;flex-direction:column;justify-content:space-between\">\n                <div style=\"display:flex;align-items:center;justify-content:space-between\"><span style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.06em;color:oklch(0.5 0.012 65)\">MOOD</span><span style=\"font-size:14px;font-weight:600;color:oklch(0.45 0.12 150)\">Calm</span></div>\n                <div style=\"display:flex;align-items:center;justify-content:space-between;margin-top:8px\"><span style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.06em;color:oklch(0.5 0.012 65)\">STRESS</span><span style=\"font-size:14px;font-weight:600;color:oklch(0.48 0.12 38)\">Low</span></div>\n                <div style=\"display:flex;gap:3px;margin-top:10px\">\n                  <div style=\"flex:1;height:5px;border-radius:3px;background:oklch(0.69 0.15 150)\"></div>\n                  <div style=\"flex:1;height:5px;border-radius:3px;background:oklch(0.69 0.15 150)\"></div>\n                  <div style=\"flex:1;height:5px;border-radius:3px;background:oklch(0.88 0.06 80)\"></div>\n                  <div style=\"flex:1;height:5px;border-radius:3px;background:oklch(0.90 0.01 84)\"></div>\n                  <div style=\"flex:1;height:5px;border-radius:3px;background:oklch(0.90 0.01 84)\"></div>\n                </div>\n              </div>\n            </div>\n\n            <!-- captures / notes -->\n            <div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:10px\"><span style=\"font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:0.08em;color:oklch(0.5 0.012 65)\">CAPTURED TODAY</span><span style=\"font-size:11px;font-weight:600;color:oklch(0.45 0.12 150)\">See all</span></div>\n            <div style=\"background:oklch(0.995 0.004 85);border:1px solid oklch(0.91 0.01 84);border-radius:16px;padding:14px;margin-bottom:10px\">\n              <div style=\"display:flex;align-items:center;gap:7px;margin-bottom:8px\"><span style=\"width:7px;height:7px;border-radius:50%;background:oklch(0.69 0.15 150)\"></span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.04em;color:oklch(0.5 0.012 65)\">14:08 &middot; DOUBLE-TAP</span></div>\n              <div style=\"font-family:'Newsreader',serif;font-style:italic;font-size:15px;line-height:1.4;color:oklch(0.30 0.012 60)\">&ldquo;Ship the changelog teaser before Friday.&rdquo;</div>\n              <div style=\"display:flex;gap:6px;margin-top:11px\"><span style=\"font-size:11px;font-weight:500;padding:5px 9px;border-radius:999px;background:oklch(0.70 0.13 150 / 0.12);color:oklch(0.45 0.12 150)\">&rarr; Ticket</span><span style=\"font-size:11px;font-weight:500;padding:5px 9px;border-radius:999px;background:oklch(0.55 0.12 265 / 0.12);color:oklch(0.40 0.12 265)\">&rarr; Tweet</span></div>\n            </div>\n\n            <!-- bottom fade -->\n            <div style=\"position:absolute;left:0;right:0;bottom:0;height:90px;background:linear-gradient(180deg, transparent, oklch(0.984 0.008 84))\"></div>\n          </div>\n\n          <!-- tab bar -->\n          <div style=\"position:absolute;left:16px;right:16px;bottom:16px;height:62px;display:flex;justify-content:space-around;align-items:center;background:oklch(0.99 0.004 85 / 0.85);backdrop-filter:blur(16px);border:1px solid oklch(0.90 0.01 84);border-radius:24px;box-shadow:0 14px 32px -14px oklch(0.4 0 0 / 0.3);z-index:6\">\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><circle cx=\"11\" cy=\"11\" r=\"8.5\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"2\"/><circle cx=\"11\" cy=\"11\" r=\"3.5\" fill=\"oklch(0.69 0.15 150)\"/></svg><span style=\"font-size:10px;font-weight:700;color:oklch(0.45 0.12 150)\">Today</span></div>\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><div style=\"width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 38% 32%, oklch(0.86 0.10 150), oklch(0.69 0.15 150) 55%, oklch(0.6 0.13 42));opacity:0.5\"></div><span style=\"font-size:10px;font-weight:500;color:oklch(0.55 0.012 65)\">Loop</span></div>\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><rect x=\"3\" y=\"3\" width=\"6.5\" height=\"6.5\" rx=\"2\" stroke=\"oklch(0.55 0.012 65)\" stroke-width=\"2\"/><rect x=\"12.5\" y=\"3\" width=\"6.5\" height=\"6.5\" rx=\"2\" stroke=\"oklch(0.55 0.012 65)\" stroke-width=\"2\"/><rect x=\"3\" y=\"12.5\" width=\"6.5\" height=\"6.5\" rx=\"2\" stroke=\"oklch(0.55 0.012 65)\" stroke-width=\"2\"/><rect x=\"12.5\" y=\"12.5\" width=\"6.5\" height=\"6.5\" rx=\"2\" stroke=\"oklch(0.55 0.012 65)\" stroke-width=\"2\"/></svg><span style=\"font-size:10px;font-weight:500;color:oklch(0.55 0.012 65)\">Apps</span></div>\n          </div>\n        </div>\n      </div>\n    ",
+  chat: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">TAB &middot; LOOP &middot; CHAT</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:oklch(0.984 0.008 84);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.5 0.012 65)\">&nbsp;</span></div>\n\n          <!-- chat header -->\n          <div style=\"display:flex;align-items:center;gap:11px;padding:4px 22px 14px;border-bottom:1px solid oklch(0.91 0.01 84);flex:none\">\n            <div style=\"position:relative;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 38% 32%, oklch(0.88 0.10 150), oklch(0.69 0.15 150) 50%, oklch(0.6 0.13 42));box-shadow:0 6px 14px -6px oklch(0.66 0.15 150 / 0.6);animation:breathe 6s ease-in-out infinite\"></div>\n            <div style=\"flex:1\"><div style=\"font-size:16px;font-weight:700;color:oklch(0.24 0.012 60)\">Loop</div><div style=\"font-family:'Spline Sans Mono',monospace;font-size:10px;color:oklch(0.45 0.12 150)\">reading your context</div></div>\n            <svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\"><circle cx=\"10\" cy=\"4\" r=\"1.6\" fill=\"oklch(0.55 0.012 65)\"/><circle cx=\"10\" cy=\"10\" r=\"1.6\" fill=\"oklch(0.55 0.012 65)\"/><circle cx=\"10\" cy=\"16\" r=\"1.6\" fill=\"oklch(0.55 0.012 65)\"/></svg>\n          </div>\n\n          <!-- messages -->\n          <div style=\"flex:1;overflow:hidden;padding:18px 18px 0;display:flex;flex-direction:column;gap:14px;position:relative\">\n            <!-- user -->\n            <div style=\"align-self:flex-end;max-width:80%;background:oklch(0.24 0.012 60);color:oklch(0.97 0.008 84);font-size:14px;line-height:1.45;padding:11px 14px;border-radius:18px 18px 5px 18px\">How did I sleep, and what should I focus on today?</div>\n\n            <!-- loop -->\n            <div style=\"align-self:flex-start;max-width:88%\">\n              <div style=\"background:oklch(0.995 0.004 85);border:1px solid oklch(0.91 0.01 84);color:oklch(0.28 0.012 60);font-size:14px;line-height:1.5;padding:13px 15px;border-radius:18px 18px 18px 5px;box-shadow:0 8px 20px -16px oklch(0.4 0 0 / 0.3)\">You slept <strong style=\"font-weight:700;color:oklch(0.40 0.12 265)\">7h 42m</strong> with strong deep sleep. HRV is up 7ms &mdash; you're recovered.<br><br>Given your calendar, I'd protect this morning for the changelog you captured yesterday.</div>\n              <!-- inline data card -->\n              <div style=\"margin-top:9px;background:oklch(0.70 0.13 150 / 0.08);border:1px solid oklch(0.70 0.13 150 / 0.25);border-radius:14px;padding:12px\">\n                <div style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.06em;color:oklch(0.42 0.12 150);margin-bottom:7px\">FROM YOUR CONTEXT</div>\n                <div style=\"display:flex;gap:14px\">\n                  <div><div style=\"font-size:17px;font-weight:700;color:oklch(0.30 0.05 150)\">86</div><div style=\"font-size:10px;color:oklch(0.5 0.012 65)\">readiness</div></div>\n                  <div style=\"width:1px;background:oklch(0.70 0.13 150 / 0.2)\"></div>\n                  <div><div style=\"font-size:17px;font-weight:700;color:oklch(0.30 0.05 150)\">62ms</div><div style=\"font-size:10px;color:oklch(0.5 0.012 65)\">HRV +7</div></div>\n                  <div style=\"width:1px;background:oklch(0.70 0.13 150 / 0.2)\"></div>\n                  <div><div style=\"font-size:17px;font-weight:700;color:oklch(0.30 0.05 150)\">3</div><div style=\"font-size:10px;color:oklch(0.5 0.012 65)\">captures</div></div>\n                </div>\n              </div>\n            </div>\n\n            <!-- typing -->\n            <div style=\"align-self:flex-start;display:flex;gap:4px;background:oklch(0.995 0.004 85);border:1px solid oklch(0.91 0.01 84);padding:12px 15px;border-radius:18px 18px 18px 5px\">\n              <div style=\"width:6px;height:6px;border-radius:50%;background:oklch(0.6 0.012 65);animation:dotwave 1.3s ease-in-out infinite\"></div>\n              <div style=\"width:6px;height:6px;border-radius:50%;background:oklch(0.6 0.012 65);animation:dotwave 1.3s ease-in-out 0.18s infinite\"></div>\n              <div style=\"width:6px;height:6px;border-radius:50%;background:oklch(0.6 0.012 65);animation:dotwave 1.3s ease-in-out 0.36s infinite\"></div>\n            </div>\n\n            <div style=\"position:absolute;left:0;right:0;bottom:0;height:60px;background:linear-gradient(180deg, transparent, oklch(0.984 0.008 84))\"></div>\n          </div>\n\n          <!-- suggestion chips + input -->\n          <div style=\"flex:none;padding:8px 16px 16px\">\n            <div style=\"display:flex;gap:7px;margin-bottom:11px;overflow:hidden\">\n              <span style=\"flex:none;font-size:12px;font-weight:500;padding:7px 12px;border-radius:999px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);color:oklch(0.40 0.012 62)\">Summarize my week</span>\n              <span style=\"flex:none;font-size:12px;font-weight:500;padding:7px 12px;border-radius:999px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);color:oklch(0.40 0.012 62)\">Draft the changelog</span>\n            </div>\n            <div style=\"display:flex;align-items:center;gap:9px;background:oklch(0.995 0.004 85);border:1px solid oklch(0.88 0.012 80);border-radius:18px;padding:7px 8px 7px 16px;box-shadow:0 8px 22px -16px oklch(0.4 0 0 / 0.3)\">\n              <span style=\"flex:1;font-size:14px;color:oklch(0.55 0.012 65)\">Ask Loop anything&hellip;</span>\n              <div style=\"flex:none;width:36px;height:36px;border-radius:50%;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);display:flex;align-items:center;justify-content:center\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\"><rect x=\"5.5\" y=\"1.5\" width=\"5\" height=\"9\" rx=\"2.5\" fill=\"oklch(0.45 0.12 150)\"/><path d=\"M3 7.5 A5 5 0 0 0 13 7.5\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"1.6\"/><line x1=\"8\" y1=\"12.5\" x2=\"8\" y2=\"14.5\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"1.6\"/></svg></div>\n            </div>\n          </div>\n        </div>\n      </div>\n    ",
+  featured: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">TAB &middot; APPS &middot; FEATURED</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:oklch(0.984 0.008 84);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.5 0.012 65)\">&nbsp;</span></div>\n\n          <div style=\"flex:1;overflow:hidden;padding:4px 20px 90px;position:relative\">\n            <div style=\"font-size:24px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.24 0.012 60)\">Apps</div>\n            <div style=\"font-size:13px;color:oklch(0.5 0.012 65);margin-top:2px;margin-bottom:16px\">Skills that act on your context.</div>\n\n            <!-- segment -->\n            <div style=\"display:flex;gap:4px;background:oklch(0.93 0.01 84);border-radius:13px;padding:4px;margin-bottom:18px\">\n              <div style=\"flex:1;text-align:center;font-size:13px;font-weight:600;padding:8px;border-radius:10px;background:oklch(0.995 0.004 85);color:oklch(0.26 0.012 60);box-shadow:0 2px 6px -3px oklch(0.4 0 0 / 0.25)\">Featured</div>\n              <div style=\"flex:1;text-align:center;font-size:13px;font-weight:500;padding:8px;border-radius:10px;color:oklch(0.5 0.012 65)\">Discover</div>\n            </div>\n\n            <!-- hero featured -->\n            <div style=\"border-radius:20px;padding:18px;margin-bottom:18px;background:linear-gradient(135deg, oklch(0.55 0.12 265), oklch(0.45 0.13 280));position:relative;overflow:hidden;box-shadow:0 14px 30px -16px oklch(0.45 0.12 265 / 0.6)\">\n              <div style=\"position:absolute;right:-20px;top:-20px;width:120px;height:120px;border-radius:50%;background:oklch(1 0 0 / 0.10)\"></div>\n              <div style=\"font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:0.12em;color:oklch(1 0 0 / 0.7)\">BUILT BY LOOP</div>\n              <div style=\"font-size:19px;font-weight:700;color:white;margin-top:8px;line-height:1.15\">Sleep Coach</div>\n              <div style=\"font-size:13px;line-height:1.45;color:oklch(1 0 0 / 0.85);margin-top:5px;max-width:200px\">Turns your nights into a plan. Wind-down nudges from your own data.</div>\n              <button style=\"margin-top:14px;border:none;cursor:pointer;font-family:inherit;background:oklch(0.99 0.01 265);color:oklch(0.40 0.12 265);font-size:13px;font-weight:700;padding:9px 18px;border-radius:11px\">Open</button>\n            </div>\n\n            <div style=\"font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:0.08em;color:oklch(0.5 0.012 65);margin-bottom:12px\">FROM THE LOOP TEAM</div>\n\n            <!-- app grid -->\n            <div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 8px\">\n              <!-- icon tile helper pattern -->\n              <div style=\"display:flex;flex-direction:column;align-items:center;gap:7px\">\n                <div style=\"width:56px;height:56px;border-radius:16px;background:linear-gradient(140deg, oklch(0.72 0.14 150), oklch(0.55 0.13 160));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px -10px oklch(0.5 0.13 150 / 0.6)\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\" fill=\"none\"><path d=\"M5 17 L10 11 L14 14 L21 6\" stroke=\"white\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></div>\n                <span style=\"font-size:11px;font-weight:600;color:oklch(0.3 0.012 60);text-align:center\">Auto-Changelog</span>\n              </div>\n              <div style=\"display:flex;flex-direction:column;align-items:center;gap:7px\">\n                <div style=\"width:56px;height:56px;border-radius:16px;background:linear-gradient(140deg, oklch(0.74 0.12 45), oklch(0.58 0.13 35));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px -10px oklch(0.6 0.13 42 / 0.6)\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\" fill=\"none\"><circle cx=\"13\" cy=\"13\" r=\"8\" stroke=\"white\" stroke-width=\"2.2\"/><circle cx=\"13\" cy=\"13\" r=\"3\" fill=\"white\"/></svg></div>\n                <span style=\"font-size:11px;font-weight:600;color:oklch(0.3 0.012 60);text-align:center\">Focus</span>\n              </div>\n              <div style=\"display:flex;flex-direction:column;align-items:center;gap:7px\">\n                <div style=\"width:56px;height:56px;border-radius:16px;background:linear-gradient(140deg, oklch(0.76 0.11 30), oklch(0.6 0.14 20));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px -10px oklch(0.6 0.14 25 / 0.6)\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\" fill=\"none\"><path d=\"M13 21 C 5 15, 4 9, 8 7 C 11 5.5, 13 8, 13 8 C 13 8, 15 5.5, 18 7 C 22 9, 21 15, 13 21 Z\" fill=\"white\"/></svg></div>\n                <span style=\"font-size:11px;font-weight:600;color:oklch(0.3 0.012 60);text-align:center\">Recovery</span>\n              </div>\n              <div style=\"display:flex;flex-direction:column;align-items:center;gap:7px\">\n                <div style=\"width:56px;height:56px;border-radius:16px;background:linear-gradient(140deg, oklch(0.62 0.12 270), oklch(0.48 0.13 285));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px -10px oklch(0.5 0.12 270 / 0.6)\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\" fill=\"none\"><path d=\"M16 4 A9 9 0 1 0 21 13 A7 7 0 0 1 16 4 Z\" fill=\"white\"/></svg></div>\n                <span style=\"font-size:11px;font-weight:600;color:oklch(0.3 0.012 60);text-align:center\">Sleep Coach</span>\n              </div>\n              <div style=\"display:flex;flex-direction:column;align-items:center;gap:7px\">\n                <div style=\"width:56px;height:56px;border-radius:16px;background:linear-gradient(140deg, oklch(0.55 0.012 65), oklch(0.34 0.012 62));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px -10px oklch(0.3 0 0 / 0.5)\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\" fill=\"none\"><path d=\"M6 19 L6 9 L13 5 L20 9 L20 19\" stroke=\"white\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/><line x1=\"9\" y1=\"13\" x2=\"17\" y2=\"13\" stroke=\"white\" stroke-width=\"2.2\" stroke-linecap=\"round\"/></svg></div>\n                <span style=\"font-size:11px;font-weight:600;color:oklch(0.3 0.012 60);text-align:center\">Journal</span>\n              </div>\n              <div style=\"display:flex;flex-direction:column;align-items:center;gap:7px\">\n                <div style=\"width:56px;height:56px;border-radius:16px;background:linear-gradient(140deg, oklch(0.72 0.14 150), oklch(0.5 0.12 200));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px -10px oklch(0.5 0.13 175 / 0.6)\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\" fill=\"none\"><path d=\"M3 14 L8 14 L10 8 L13 18 L15 12 L17 14 L23 14\" stroke=\"white\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></div>\n                <span style=\"font-size:11px;font-weight:600;color:oklch(0.3 0.012 60);text-align:center\">Heart Lab</span>\n              </div>\n            </div>\n\n            <div style=\"position:absolute;left:0;right:0;bottom:0;height:90px;background:linear-gradient(180deg, transparent, oklch(0.984 0.008 84))\"></div>\n          </div>\n\n          <!-- tab bar (Apps active) -->\n          <div style=\"position:absolute;left:16px;right:16px;bottom:16px;height:62px;display:flex;justify-content:space-around;align-items:center;background:oklch(0.99 0.004 85 / 0.85);backdrop-filter:blur(16px);border:1px solid oklch(0.90 0.01 84);border-radius:24px;box-shadow:0 14px 32px -14px oklch(0.4 0 0 / 0.3);z-index:6\">\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><circle cx=\"11\" cy=\"11\" r=\"8.5\" stroke=\"oklch(0.55 0.012 65)\" stroke-width=\"2\"/><circle cx=\"11\" cy=\"11\" r=\"3.5\" fill=\"oklch(0.7 0.012 65)\"/></svg><span style=\"font-size:10px;font-weight:500;color:oklch(0.55 0.012 65)\">Today</span></div>\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><div style=\"width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 38% 32%, oklch(0.86 0.10 150), oklch(0.69 0.15 150) 55%, oklch(0.6 0.13 42));opacity:0.5\"></div><span style=\"font-size:10px;font-weight:500;color:oklch(0.55 0.012 65)\">Loop</span></div>\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><rect x=\"3\" y=\"3\" width=\"6.5\" height=\"6.5\" rx=\"2\" fill=\"oklch(0.69 0.15 150)\"/><rect x=\"12.5\" y=\"3\" width=\"6.5\" height=\"6.5\" rx=\"2\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"2\"/><rect x=\"3\" y=\"12.5\" width=\"6.5\" height=\"6.5\" rx=\"2\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"2\"/><rect x=\"12.5\" y=\"12.5\" width=\"6.5\" height=\"6.5\" rx=\"2\" fill=\"oklch(0.69 0.15 150)\"/></svg><span style=\"font-size:10px;font-weight:700;color:oklch(0.45 0.12 150)\">Apps</span></div>\n          </div>\n        </div>\n      </div>\n    ",
+  discover: "\n      <div style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:0.1em;color:oklch(0.5 0.012 65);margin-bottom:12px\">TAB &middot; APPS &middot; DISCOVER</div>\n      <div style=\"background:#0e0e10;border-radius:46px;padding:9px;box-shadow:0 30px 70px -30px oklch(0.4 0 0 / 0.5)\">\n        <div style=\"position:relative;border-radius:38px;overflow:hidden;height:652px;background:oklch(0.984 0.008 84);display:flex;flex-direction:column\">\n          <div style=\"position:absolute;left:50%;top:9px;transform:translateX(-50%);width:78px;height:22px;border-radius:999px;background:#0e0e10;z-index:5\"></div>\n          <div style=\"height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;flex:none\"><span style=\"font-size:14px;font-weight:600;font-family:'Spline Sans Mono',monospace\">9:41</span><span style=\"font-family:'Spline Sans Mono',monospace;font-size:11px;color:oklch(0.5 0.012 65)\">&nbsp;</span></div>\n\n          <div style=\"flex:1;overflow:hidden;padding:4px 20px 90px;position:relative\">\n            <div style=\"font-size:24px;font-weight:700;letter-spacing:-0.02em;color:oklch(0.24 0.012 60)\">Discover</div>\n            <div style=\"font-size:13px;color:oklch(0.5 0.012 65);margin-top:2px;margin-bottom:16px\">What the community built on Loop.</div>\n\n            <!-- segment -->\n            <div style=\"display:flex;gap:4px;background:oklch(0.93 0.01 84);border-radius:13px;padding:4px;margin-bottom:14px\">\n              <div style=\"flex:1;text-align:center;font-size:13px;font-weight:500;padding:8px;border-radius:10px;color:oklch(0.5 0.012 65)\">Featured</div>\n              <div style=\"flex:1;text-align:center;font-size:13px;font-weight:600;padding:8px;border-radius:10px;background:oklch(0.995 0.004 85);color:oklch(0.26 0.012 60);box-shadow:0 2px 6px -3px oklch(0.4 0 0 / 0.25)\">Discover</div>\n            </div>\n\n            <!-- search -->\n            <div style=\"display:flex;align-items:center;gap:9px;background:oklch(0.995 0.004 85);border:1px solid oklch(0.88 0.012 80);border-radius:14px;padding:11px 14px;margin-bottom:13px\">\n              <svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\"><circle cx=\"7\" cy=\"7\" r=\"5\" stroke=\"oklch(0.55 0.012 65)\" stroke-width=\"1.8\"/><line x1=\"11\" y1=\"11\" x2=\"14.5\" y2=\"14.5\" stroke=\"oklch(0.55 0.012 65)\" stroke-width=\"1.8\" stroke-linecap=\"round\"/></svg>\n              <span style=\"flex:1;font-size:14px;color:oklch(0.55 0.012 65)\">Search apps &amp; skills</span>\n            </div>\n\n            <!-- category chips -->\n            <div style=\"display:flex;gap:7px;margin-bottom:18px;overflow:hidden\">\n              <span style=\"flex:none;font-size:12px;font-weight:600;padding:7px 13px;border-radius:999px;background:oklch(0.24 0.012 60);color:oklch(0.97 0.008 84)\">All</span>\n              <span style=\"flex:none;font-size:12px;font-weight:500;padding:7px 13px;border-radius:999px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);color:oklch(0.42 0.012 62)\">Health</span>\n              <span style=\"flex:none;font-size:12px;font-weight:500;padding:7px 13px;border-radius:999px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);color:oklch(0.42 0.012 62)\">Work</span>\n              <span style=\"flex:none;font-size:12px;font-weight:500;padding:7px 13px;border-radius:999px;background:oklch(0.99 0.004 85);border:1px solid oklch(0.90 0.01 84);color:oklch(0.42 0.012 62)\">Focus</span>\n            </div>\n\n            <!-- list rows -->\n            <div style=\"display:flex;flex-direction:column;gap:12px\">\n              <!-- row -->\n              <div style=\"display:flex;align-items:center;gap:13px\">\n                <div style=\"flex:none;width:48px;height:48px;border-radius:14px;background:linear-gradient(140deg, oklch(0.6 0.13 280), oklch(0.46 0.14 295));display:flex;align-items:center;justify-content:center\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><path d=\"M4 16 L4 7 A3 3 0 0 1 7 4 L15 4 A3 3 0 0 1 18 7 L18 12 A3 3 0 0 1 15 15 L8 15 Z\" fill=\"white\"/></svg></div>\n                <div style=\"flex:1;min-width:0\"><div style=\"font-size:14px;font-weight:700;color:oklch(0.26 0.012 60)\">Standup Writer</div><div style=\"font-size:11px;color:oklch(0.5 0.012 65)\">by northpeak &middot; &#9733; 4.9 &middot; 12k</div></div>\n                <button style=\"flex:none;border:none;cursor:pointer;font-family:inherit;background:oklch(0.70 0.13 150 / 0.14);color:oklch(0.42 0.12 150);font-size:12px;font-weight:700;padding:8px 15px;border-radius:11px\">Get</button>\n              </div>\n              <div style=\"display:flex;align-items:center;gap:13px\">\n                <div style=\"flex:none;width:48px;height:48px;border-radius:14px;background:linear-gradient(140deg, oklch(0.74 0.13 45), oklch(0.58 0.13 32));display:flex;align-items:center;justify-content:center\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><path d=\"M11 3 L11 11 L16 14\" stroke=\"white\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><circle cx=\"11\" cy=\"11\" r=\"8\" stroke=\"white\" stroke-width=\"2.2\"/></svg></div>\n                <div style=\"flex:1;min-width:0\"><div style=\"font-size:14px;font-weight:700;color:oklch(0.26 0.012 60)\">Fast Timer</div><div style=\"font-size:11px;color:oklch(0.5 0.012 65)\">by mira.dev &middot; &#9733; 4.8 &middot; 8.3k</div></div>\n                <button style=\"flex:none;border:none;cursor:pointer;font-family:inherit;background:oklch(0.70 0.13 150 / 0.14);color:oklch(0.42 0.12 150);font-size:12px;font-weight:700;padding:8px 15px;border-radius:11px\">Get</button>\n              </div>\n              <div style=\"display:flex;align-items:center;gap:13px\">\n                <div style=\"flex:none;width:48px;height:48px;border-radius:14px;background:linear-gradient(140deg, oklch(0.72 0.14 150), oklch(0.5 0.12 165));display:flex;align-items:center;justify-content:center\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><path d=\"M3 13 L7 13 L9 7 L13 17 L15 11 L19 11\" stroke=\"white\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></div>\n                <div style=\"flex:1;min-width:0\"><div style=\"font-size:14px;font-weight:700;color:oklch(0.26 0.012 60)\">HRV Trends+</div><div style=\"font-size:11px;color:oklch(0.5 0.012 65)\">by vitalkit &middot; &#9733; 4.9 &middot; 21k</div></div>\n                <button style=\"flex:none;border:none;cursor:pointer;font-family:inherit;background:oklch(0.70 0.13 150 / 0.14);color:oklch(0.42 0.12 150);font-size:12px;font-weight:700;padding:8px 15px;border-radius:11px\">Get</button>\n              </div>\n              <div style=\"display:flex;align-items:center;gap:13px\">\n                <div style=\"flex:none;width:48px;height:48px;border-radius:14px;background:linear-gradient(140deg, oklch(0.55 0.012 65), oklch(0.34 0.012 62));display:flex;align-items:center;justify-content:center\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><rect x=\"4\" y=\"4\" width=\"14\" height=\"14\" rx=\"3.5\" stroke=\"white\" stroke-width=\"2.2\"/><path d=\"M8 11 L10 13 L14.5 8.5\" stroke=\"white\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></div>\n                <div style=\"flex:1;min-width:0\"><div style=\"font-size:14px;font-weight:700;color:oklch(0.26 0.012 60)\">Habit Loop</div><div style=\"font-size:11px;color:oklch(0.5 0.012 65)\">by openhabit &middot; &#9733; 4.7 &middot; 5.1k</div></div>\n                <button style=\"flex:none;border:none;cursor:pointer;font-family:inherit;background:oklch(0.70 0.13 150 / 0.14);color:oklch(0.42 0.12 150);font-size:12px;font-weight:700;padding:8px 15px;border-radius:11px\">Get</button>\n              </div>\n              <div style=\"display:flex;align-items:center;gap:13px\">\n                <div style=\"flex:none;width:48px;height:48px;border-radius:14px;background:linear-gradient(140deg, oklch(0.7 0.14 25), oklch(0.52 0.15 15));display:flex;align-items:center;justify-content:center\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><path d=\"M11 4 C 6 8, 5 13, 11 18 C 17 13, 16 8, 11 4 Z\" fill=\"white\"/></svg></div>\n                <div style=\"flex:1;min-width:0\"><div style=\"font-size:14px;font-weight:700;color:oklch(0.26 0.012 60)\">Calm Breath</div><div style=\"font-size:11px;color:oklch(0.5 0.012 65)\">by stillpoint &middot; &#9733; 4.9 &middot; 18k</div></div>\n                <button style=\"flex:none;border:none;cursor:pointer;font-family:inherit;background:oklch(0.70 0.13 150 / 0.14);color:oklch(0.42 0.12 150);font-size:12px;font-weight:700;padding:8px 15px;border-radius:11px\">Get</button>\n              </div>\n            </div>\n\n            <div style=\"position:absolute;left:0;right:0;bottom:0;height:90px;background:linear-gradient(180deg, transparent, oklch(0.984 0.008 84))\"></div>\n          </div>\n\n          <!-- tab bar (Apps active) -->\n          <div style=\"position:absolute;left:16px;right:16px;bottom:16px;height:62px;display:flex;justify-content:space-around;align-items:center;background:oklch(0.99 0.004 85 / 0.85);backdrop-filter:blur(16px);border:1px solid oklch(0.90 0.01 84);border-radius:24px;box-shadow:0 14px 32px -14px oklch(0.4 0 0 / 0.3);z-index:6\">\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><circle cx=\"11\" cy=\"11\" r=\"8.5\" stroke=\"oklch(0.55 0.012 65)\" stroke-width=\"2\"/><circle cx=\"11\" cy=\"11\" r=\"3.5\" fill=\"oklch(0.7 0.012 65)\"/></svg><span style=\"font-size:10px;font-weight:500;color:oklch(0.55 0.012 65)\">Today</span></div>\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><div style=\"width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 38% 32%, oklch(0.86 0.10 150), oklch(0.69 0.15 150) 55%, oklch(0.6 0.13 42));opacity:0.5\"></div><span style=\"font-size:10px;font-weight:500;color:oklch(0.55 0.012 65)\">Loop</span></div>\n            <div style=\"display:flex;flex-direction:column;align-items:center;gap:4px\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\"><rect x=\"3\" y=\"3\" width=\"6.5\" height=\"6.5\" rx=\"2\" fill=\"oklch(0.69 0.15 150)\"/><rect x=\"12.5\" y=\"3\" width=\"6.5\" height=\"6.5\" rx=\"2\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"2\"/><rect x=\"3\" y=\"12.5\" width=\"6.5\" height=\"6.5\" rx=\"2\" stroke=\"oklch(0.45 0.12 150)\" stroke-width=\"2\"/><rect x=\"12.5\" y=\"12.5\" width=\"6.5\" height=\"6.5\" rx=\"2\" fill=\"oklch(0.69 0.15 150)\"/></svg><span style=\"font-size:10px;font-weight:700;color:oklch(0.45 0.12 150)\">Apps</span></div>\n          </div>\n        </div>\n      </div>\n    ",
+};
 
-/* ============================================================ wires */
-const NS='http://www.w3.org/2000/svg';
-svg.innerHTML=`<defs>
-  <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
-    <path d="M0,0 L7,3 L0,6 Z" fill="#aeb6c6"/></marker>
-  <marker id="ahb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
-    <path d="M0,0 L7,3 L0,6 Z" fill="#e0a26a"/></marker>
-</defs><g id="wireG"></g>`;
-const wireG=document.getElementById('wireG');
+const MNODES = {
+  welcome: {x:60, y:110, w:300, kind:'welcome'},
+  prepare: {x:430, y:110, w:300, kind:'prepare'},
+  pairing: {x:800, y:110, w:300, kind:'pairing'},
+  connected: {x:1170, y:110, w:300, kind:'connected'},
+  listening: {x:1540, y:110, w:300, kind:'listening'},
+  today: {x:60, y:880, w:300, kind:'today'},
+  chat: {x:430, y:880, w:300, kind:'chat'},
+  featured: {x:800, y:880, w:300, kind:'featured'},
+  discover: {x:1170, y:880, w:300, kind:'discover'},
+};
 
-function anchors(s,t){
-  const sb={x:s.x,y:s.y,w:s.el.offsetWidth,h:s.el.offsetHeight};
-  const tb={x:t.x,y:t.y,w:t.el.offsetWidth,h:t.el.offsetHeight};
-  const scx=sb.x+sb.w/2, tcx=tb.x+tb.w/2;
-  const fwd=tcx>=scx;
-  const sx=fwd?sb.x+sb.w:sb.x, sy=sb.y+sb.h/2;
-  const tx=fwd?tb.x:tb.x+tb.w, ty=tb.y+tb.h/2;
-  return {sx,sy,tx,ty,fwd};
-}
-function drawWires(){
-  wireG.innerHTML='';
-  EDGES.forEach(([a,b,label,type])=>{
-    const s=NODES[a],t=NODES[b]; if(!s.el||!t.el)return;
-    const {sx,sy,tx,ty,fwd}=anchors(s,t);
-    const dir=fwd?1:-1;
-    const k=Math.max(45,Math.abs(tx-sx)*0.42);
-    const bow=type==='feedback'?70:0;
-    const c1x=sx+dir*k, c2x=tx-dir*k;
-    const d=`M${sx},${sy} C${c1x},${sy+bow} ${c2x},${ty+bow} ${tx},${ty}`;
-    const p=document.createElementNS(NS,'path');
-    p.setAttribute('d',d); p.setAttribute('fill','none');
-    if(type==='feedback'){p.setAttribute('stroke','#e0a26a');p.setAttribute('stroke-width','1.8');
-      p.setAttribute('stroke-dasharray','5 4');p.setAttribute('marker-end','url(#ahb)');}
-    else{p.setAttribute('stroke',type==='fan'?'#c7cdde':'#aeb6c6');
-      p.setAttribute('stroke-width',type==='fan'?'1.6':'2');p.setAttribute('marker-end','url(#ah)');}
-    wireG.appendChild(p);
-    if(label){
-      const mx=(sx+tx)/2, my=(sy+ty)/2+bow*0.75;
-      const tEl=document.createElementNS(NS,'text');
-      tEl.setAttribute('x',mx); tEl.setAttribute('y',my-3);
-      tEl.setAttribute('text-anchor','middle');
-      tEl.setAttribute('font-family','ui-monospace,Menlo,monospace');
-      tEl.setAttribute('font-size','10.5');
-      tEl.setAttribute('fill',type==='feedback'?'#c47a35':'#5a6170');
-      tEl.setAttribute('paint-order','stroke');
-      tEl.setAttribute('stroke','#fbfcfe'); tEl.setAttribute('stroke-width','3.5');
-      tEl.setAttribute('stroke-linejoin','round');
-      tEl.textContent=label;
-      wireG.appendChild(tEl);
-    }
+const MEDGES = [
+  ['welcome','prepare','set up','flow'],
+  ['prepare','pairing','start pairing','flow'],
+  ['pairing','connected','pair','flow'],
+  ['connected','listening','continue','flow'],
+  ['listening','today','enter Loop','mcp'],
+  ['today','chat','ask Loop','flow'],
+  ['chat','featured','open Apps','flow'],
+  ['featured','discover','browse','flow'],
+];
+
+function mockInner(id,n){ return SCREENS[n.kind]; }
+
+/* ============================================================ reusable whiteboard engine */
+function makeBoard(cfg){
+  const {key, boardEl, worldEl, svgEl, nodes, edges, colheads, wrapClass, render, topPad}=cfg;
+
+  (colheads||[]).forEach(h=>{
+    const d=document.createElement('div'); d.className='colhead';
+    d.style.left=h.x+'px'; d.style.top='110px';
+    d.innerHTML=`<span class="n">${h.n}</span> ${h.t}`;
+    worldEl.appendChild(d);
   });
+
+  for(const id in nodes){
+    const n=nodes[id];
+    const el=document.createElement('div');
+    el.className='wbnode '+wrapClass(n);
+    if(n.special) el.id = n.special==='ring'?'ringNode':n.special;
+    el.dataset.id=id; el.style.left=n.x+'px'; el.style.top=n.y+'px';
+    if(n.w) el.style.width=n.w+'px';
+    el.innerHTML=render(id,n);
+    worldEl.appendChild(el); n.el=el;
+  }
+
+  svgEl.innerHTML=`<defs>
+    <marker id="ah-${key}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#aeb6c6"/></marker>
+    <marker id="ahb-${key}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0a26a"/></marker>
+    <marker id="ahd-${key}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1ca39a"/></marker>
+    <marker id="ahg-${key}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2f9e54"/></marker>
+  </defs><g></g>`;
+  const wireG=svgEl.querySelector('g');
+
+  function anchors(s,t){
+    const sb={x:s.x,y:s.y,w:s.el.offsetWidth,h:s.el.offsetHeight};
+    const tb={x:t.x,y:t.y,w:t.el.offsetWidth,h:t.el.offsetHeight};
+    const scx=sb.x+sb.w/2, tcx=tb.x+tb.w/2;
+    const fwd=tcx>=scx;
+    const sx=fwd?sb.x+sb.w:sb.x, sy=sb.y+sb.h/2;
+    const tx=fwd?tb.x:tb.x+tb.w, ty=tb.y+tb.h/2;
+    return {sx,sy,tx,ty,fwd};
+  }
+  function drawWires(){
+    wireG.innerHTML='';
+    edges.forEach(([a,b,label,type])=>{
+      const s=nodes[a],t=nodes[b]; if(!s||!t||!s.el||!t.el)return;
+      const {sx,sy,tx,ty,fwd}=anchors(s,t);
+      const dir=fwd?1:-1;
+      const k=Math.max(45,Math.abs(tx-sx)*0.42);
+      const bow=type==='feedback'?80:(type==='direct'?28:0);
+      const c1x=sx+dir*k, c2x=tx-dir*k;
+      const d=`M${sx},${sy} C${c1x},${sy+bow} ${c2x},${ty+bow} ${tx},${ty}`;
+      const p=document.createElementNS(NS,'path');
+      p.setAttribute('d',d); p.setAttribute('fill','none');
+      if(type==='feedback'){p.setAttribute('stroke','#e0a26a');p.setAttribute('stroke-width','1.8');
+        p.setAttribute('stroke-dasharray','5 4');p.setAttribute('marker-end',`url(#ahb-${key})`);}
+      else if(type==='direct'){p.setAttribute('stroke','#1ca39a');p.setAttribute('stroke-width','2');
+        p.setAttribute('stroke-dasharray','6 4');p.setAttribute('marker-end',`url(#ahd-${key})`);}
+      else if(type==='mcp'){p.setAttribute('stroke','#2f9e54');p.setAttribute('stroke-width','2.4');
+        p.setAttribute('marker-end',`url(#ahg-${key})`);}
+      else{p.setAttribute('stroke',type==='fan'?'#c7cdde':'#aeb6c6');
+        p.setAttribute('stroke-width',type==='fan'?'1.6':'2');p.setAttribute('marker-end',`url(#ah-${key})`);}
+      wireG.appendChild(p);
+      if(label){
+        const mx=(sx+tx)/2, my=(sy+ty)/2+bow*0.75;
+        const tEl=document.createElementNS(NS,'text');
+        tEl.setAttribute('x',mx); tEl.setAttribute('y',my-3);
+        tEl.setAttribute('text-anchor','middle');
+        tEl.setAttribute('font-family','ui-monospace,Menlo,monospace');
+        tEl.setAttribute('font-size','10.5');
+        tEl.setAttribute('fill',type==='feedback'?'#c47a35':(type==='direct'?'#0c8074':(type==='mcp'?'#1f7a3d':'#5a6170')));
+        tEl.setAttribute('paint-order','stroke');
+        tEl.setAttribute('stroke','#fbfcfe'); tEl.setAttribute('stroke-width','3.5');
+        tEl.setAttribute('stroke-linejoin','round');
+        tEl.textContent=label;
+        wireG.appendChild(tEl);
+      }
+    });
+  }
+
+  const view={x:0,y:0,scale:1};
+  const zoomLabel=document.getElementById('zoomLabel');
+  function applyView(){
+    worldEl.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale})`;
+    boardEl.style.backgroundPosition=`${view.x}px ${view.y}px`;
+    boardEl.style.backgroundSize=`${22*view.scale}px ${22*view.scale}px`;
+    if(zoomLabel) zoomLabel.textContent=Math.round(view.scale*100)+'%';
+  }
+  function fitView(){
+    let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+    for(const id in nodes){const n=nodes[id];
+      minX=Math.min(minX,n.x);minY=Math.min(minY,n.y-(topPad||30));
+      maxX=Math.max(maxX,n.x+n.el.offsetWidth);maxY=Math.max(maxY,n.y+n.el.offsetHeight);}
+    const m=80;
+    const s=Math.min(1.1,(innerWidth-2*m)/(maxX-minX),(innerHeight-2*m)/(maxY-minY));
+    view.scale=Math.max(.35,s);
+    view.x=(innerWidth-(minX+maxX)*view.scale)/2;
+    view.y=(innerHeight-(minY+maxY)*view.scale)/2;
+    applyView();
+  }
+
+  let panning=false,start={};
+  boardEl.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.wbnode'))return;
+    panning=true;boardEl.classList.add('panning');
+    start={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};
+    boardEl.setPointerCapture(e.pointerId);
+  });
+  boardEl.addEventListener('pointermove',e=>{if(!panning)return;
+    view.x=start.vx+(e.clientX-start.x);view.y=start.vy+(e.clientY-start.y);applyView();});
+  boardEl.addEventListener('pointerup',()=>{panning=false;boardEl.classList.remove('panning');});
+
+  let drag=null;
+  worldEl.addEventListener('pointerdown',e=>{
+    const el=e.target.closest('.wbnode'); if(!el)return;
+    const id=el.dataset.id, n=nodes[id];
+    drag={el,n,sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y};
+    el.classList.add('dragging'); el.setPointerCapture(e.pointerId); e.stopPropagation();
+  });
+  worldEl.addEventListener('pointermove',e=>{if(!drag)return;
+    const dx=(e.clientX-drag.sx)/view.scale, dy=(e.clientY-drag.sy)/view.scale;
+    drag.n.x=drag.ox+dx; drag.n.y=drag.oy+dy;
+    drag.el.style.left=drag.n.x+'px'; drag.el.style.top=drag.n.y+'px';
+    drawWires();});
+  worldEl.addEventListener('pointerup',()=>{if(drag){drag.el.classList.remove('dragging');drag=null;}});
+
+  boardEl.addEventListener('wheel',e=>{e.preventDefault();
+    const ns=Math.max(.35,Math.min(2.4,view.scale*(e.deltaY<0?1.08:.92)));
+    view.x=e.clientX-(e.clientX-view.x)*(ns/view.scale);
+    view.y=e.clientY-(e.clientY-view.y)*(ns/view.scale);
+    view.scale=ns;applyView();},{passive:false});
+
+  drawWires();
+  return {
+    fit:fitView, draw:drawWires, applyView,
+    zoomBy:f=>{view.scale=Math.max(.35,Math.min(2.4,view.scale*f));applyView();}
+  };
 }
 
-/* ============================================================ pan + zoom + drag */
-const view={x:0,y:0,scale:1};
-function applyView(){
-  world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale})`;
-  board.style.backgroundPosition=`${view.x}px ${view.y}px`;
-  board.style.backgroundSize=`${22*view.scale}px ${22*view.scale}px`;
-  document.getElementById('zoomLabel').textContent=Math.round(view.scale*100)+'%';
-}
-function fitView(){
-  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
-  for(const id in NODES){const n=NODES[id];
-    minX=Math.min(minX,n.x);minY=Math.min(minY,n.y-90);
-    maxX=Math.max(maxX,n.x+n.el.offsetWidth);maxY=Math.max(maxY,n.y+n.el.offsetHeight);}
-  const m=80;
-  const s=Math.min(1.1,(innerWidth-2*m)/(maxX-minX),(innerHeight-2*m)/(maxY-minY));
-  view.scale=Math.max(.4,s);
-  view.x=(innerWidth-(minX+maxX)*view.scale)/2;
-  view.y=(innerHeight-(minY+maxY)*view.scale)/2;
-  applyView();
-}
-
-let panning=false,start={};
-board.addEventListener('pointerdown',e=>{
-  if(e.target.closest('.node'))return;
-  panning=true;board.classList.add('panning');
-  start={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};
-  board.setPointerCapture(e.pointerId);
+/* ============================================================ instantiate boards */
+const archBoard = makeBoard({
+  key:'a',
+  boardEl:document.getElementById('board'),
+  worldEl:document.getElementById('world'),
+  svgEl:document.getElementById('wires'),
+  nodes:NODES, edges:EDGES, colheads:COLHEADS,
+  wrapClass:n=>'node '+(n.cls||''), render:nodeInner, topPad:96,
 });
-board.addEventListener('pointermove',e=>{if(!panning)return;
-  view.x=start.vx+(e.clientX-start.x);view.y=start.vy+(e.clientY-start.y);applyView();});
-board.addEventListener('pointerup',()=>{panning=false;board.classList.remove('panning');});
-
-let drag=null;
-world.addEventListener('pointerdown',e=>{
-  const el=e.target.closest('.node'); if(!el)return;
-  const id=el.dataset.id, n=NODES[id];
-  drag={el,n,sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y};
-  el.classList.add('dragging'); el.setPointerCapture(e.pointerId); e.stopPropagation();
+const mockBoard = makeBoard({
+  key:'m',
+  boardEl:document.getElementById('board2'),
+  worldEl:document.getElementById('world2'),
+  svgEl:document.getElementById('wires2'),
+  nodes:MNODES, edges:MEDGES, colheads:[],
+  wrapClass:()=> 'dcnode', render:mockInner, topPad:40,
 });
-world.addEventListener('pointermove',e=>{if(!drag)return;
-  const dx=(e.clientX-drag.sx)/view.scale, dy=(e.clientY-drag.sy)/view.scale;
-  drag.n.x=drag.ox+dx; drag.n.y=drag.oy+dy;
-  drag.el.style.left=drag.n.x+'px'; drag.el.style.top=drag.n.y+'px';
-  drawWires();});
-world.addEventListener('pointerup',e=>{if(drag){drag.el.classList.remove('dragging');drag=null;}});
+archBoard.fit();
 
-board.addEventListener('wheel',e=>{e.preventDefault();
-  const ns=Math.max(.4,Math.min(2.4,view.scale*(e.deltaY<0?1.08:.92)));
-  view.x=e.clientX-(e.clientX-view.x)*(ns/view.scale);
-  view.y=e.clientY-(e.clientY-view.y)*(ns/view.scale);
-  view.scale=ns;applyView();},{passive:false});
-document.getElementById('zoomIn').onclick=()=>{view.scale=Math.min(2.4,view.scale*1.15);applyView();};
-document.getElementById('zoomOut').onclick=()=>{view.scale=Math.max(.4,view.scale*.87);applyView();};
-document.getElementById('recenter').onclick=fitView;
-addEventListener('resize',applyView);
+/* ============================================================ view switcher + tools */
+let active=archBoard, mockReady=false;
+const tabArch=document.getElementById('tabArch');
+const tabMock=document.getElementById('tabMock');
+function show(mock){
+  document.body.classList.toggle('show-mock',mock);
+  tabArch.classList.toggle('on',!mock);
+  tabMock.classList.toggle('on',mock);
+  active = mock?mockBoard:archBoard;
+  if(mock && !mockReady){
+    requestAnimationFrame(()=>{mockBoard.draw();mockBoard.fit();mockReady=true;});
+  }else{
+    active.applyView();
+  }
+}
+tabArch.onclick=()=>show(false);
+tabMock.onclick=()=>show(true);
 
-drawWires(); fitView();
+document.getElementById('zoomIn').onclick=()=>active.zoomBy(1.15);
+document.getElementById('zoomOut').onclick=()=>active.zoomBy(.87);
+document.getElementById('recenter').onclick=()=>active.fit();
+addEventListener('resize',()=>{archBoard.applyView();if(mockReady)mockBoard.applyView();});
 
 /* ============================================================ 3D ring (RingForge renderer) */
 (function initRing(){
